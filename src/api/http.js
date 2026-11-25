@@ -130,6 +130,20 @@ export function createHttpApi(baseUrl) {
     medicines: {
       verify: (nafdacNo) => request(`/medicines/verify?nafdac=${encodeURIComponent(nafdacNo)}`),
     },
+    voice: {
+      config: () => request('/voice/config'),
+      createSession: ({ lat, lng } = {}) => request('/voice/sessions', { method: 'POST', body: { lat, lng } }),
+      endSession: (id) => request(`/voice/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+      targets: () => request('/voice/targets'),
+      calls: () => request('/voice/calls'),
+      createCall: ({ targetType, targetId, purpose }) => {
+        const trimmed = purpose.trim()
+        if (trimmed.length < 5 || trimmed.length > 500) return Promise.reject(new Error('Purpose must be 5–500 characters.'))
+        return request('/voice/calls', { method: 'POST', body: { targetType, targetId, purpose: trimmed } })
+      },
+      confirmCall: (id) => request(`/voice/calls/${encodeURIComponent(id)}/confirm`, { method: 'POST', body: { confirmed: true } }),
+      cancelCall: (id) => request(`/voice/calls/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    },
     agent: {
       chat: (messages, { lat, lng, ...handlers } = {}) => streamEvents('/agent/chat', { method: 'POST', body: { messages, lat, lng }, ...handlers }),
     },

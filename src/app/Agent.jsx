@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import VoicePanel from './VoicePanel.jsx'
 import Icon from '../components/Icon.jsx'
 import { useLocation } from './location.jsx'
 import { api } from '../api/index.js'
@@ -15,6 +16,7 @@ export default function Agent({ me }) {
   const first = me.profile.name.split(' ')[0] || 'there'
   const [msgs, setMsgs] = useState([{ role: 'assistant', content: `Hi ${first}, I'm TendTalk. Ask me a health question, or ask for help preparing for a hospital visit.` }])
   const [text, setText] = useState('')
+  const [voiceActive, setVoiceActive] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const end = useRef(null)
@@ -27,7 +29,7 @@ export default function Agent({ me }) {
 
   const send = (t) => {
     const v = (t ?? text).trim()
-    if (!v || busy) return
+    if (!v || busy || voiceActive) return
     const history = [...msgs, { role: 'user', content: v }]
     setMsgs([...history, { role: 'assistant', content: '', pending: true }])
     setText('')
@@ -74,6 +76,7 @@ export default function Agent({ me }) {
         </div>
       </div>
 
+      <VoicePanel position={loc.pos} textBusy={busy} onActiveChange={setVoiceActive} />
       <div className="agent-body" aria-live="polite">
         {msgs.map((m, n) => (
           <div key={n} className={`msg msg-${m.role === 'user' ? 'me' : 'ai'}`}>
@@ -91,11 +94,11 @@ export default function Agent({ me }) {
       </div>
 
       <form className="agent-input" onSubmit={(e) => { e.preventDefault(); send() }}>
-        <input aria-label="Message TendTalk" value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask TendTalk anything about your health…" />
+        <input disabled={voiceActive} aria-label="Message TendTalk" value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask TendTalk anything about your health…" />
         {busy ? (
           <button type="button" className="send-btn" onClick={cancel} aria-label="Stop reply"><Icon name="x" size={18} /></button>
         ) : (
-          <button className="send-btn" aria-label="Send" disabled={!text.trim()}><Icon name="send" size={18} /></button>
+          <button className="send-btn" aria-label="Send" disabled={voiceActive || !text.trim()}><Icon name="send" size={18} /></button>
         )}
       </form>
       <p className="agent-foot">AI can explain and organise. Qualified professionals make clinical decisions. In an emergency, press SOS or call 112.</p>
