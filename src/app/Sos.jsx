@@ -1,61 +1,98 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import Icon from '../components/Icon.jsx'
-import { useStore, facilities } from './store.jsx'
+import { api, isDemo } from '../api/index.js'
+import { useLocation } from './location.jsx'
 
-// Simulated incident timeline. In the build this comes from GET /incidents/:id/stream.
-function useIncident(active, targets) {
-  const [rows, setRows] = useState(() => targets.map((t) => ({ ...t, status: 'queued' })))
-  useEffect(() => {
-    if (!active) return
-    const plan = [
-      [400, 0, 'calling'], [900, 1, 'calling'], [1200, 2, 'sms'],
-      [2600, 1, 'answered'], [3400, 3, 'demo'], [4200, 0, 'calling2'],
-      [6200, 0, 'confirmed'], [5200, 2, 'delivered'],
-    ]
-    const timers = plan.map(([ms, i, s]) => setTimeout(() => setRows((r) => r.map((x, n) => (n === i ? { ...x, status: s } : x))), ms))
-    return () => timers.forEach(clearTimeout)
-  }, [active])
-  return rows
-}
-
-const statusMap = {
+// Status labels. "Calling" is never shown as "answered"; failures are shown, not hidden (slide 06).
+const STATUS = {
   queued: ['Waiting', 'grey'],
-  calling: ['Calling now', 'amber'],
-  calling2: ['Speaking with staff', 'amber'],
+  calling: ['Calling now', 'amber', true],
+  speaking: ['Speaking with staff', 'amber', true],
   confirmed: ['Staff confirmed they can help', 'green'],
   answered: ['Answered · aware', 'green'],
-  sms: ['Sending text', 'amber'],
-  delivered: ['Text delivered', 'blue'],
-  demo: ['Demo alert only', 'grey'],
+  no_answer: ['No answer · retrying', 'red'],
+  retrying: ['Retrying', 'amber', true],
+  failed: ['Could not reach', 'red'],
+  sms_sending: ['Sending text', 'amber', true],
+  sms_delivered: ['Text delivered', 'blue'],
+  sms_failed: ['Text failed', 'red'],
+  skipped: ['Not contacted', 'grey'],
+  demo_only: ['Demo alert only', 'grey'],
+}
+const KIND_ICON = { hospital: 'hospital', contact: 'user', helpers: 'users' }
+const HELP_CONFIRMED = ['confirmed', 'answered']
+
+function sharedFields(share) {
+  return Object.entries(share || {}).filter(([, v]) => v).map(([k]) => k)
 }
 
-export default function Sos({ onClose }) {
-  const { state } = useStore()
-  const total = state.sosDelay
+export default function Sos({ me, onClose }) {
+  const loc = useLocation()
+  const nav = useNavigate()
+  const total = me.settings.sosDelay
   const [left, setLeft] = useState(total)
-  const [phase, setPhase] = useState('countdown')
+  const [phase, setPhase] = useState('countdown') // countdown | sending | live | error | ended
+  const [incident, setIncident] = useState(null)
+  const [targets, setTargets] = useState([])
+  const [error, setError] = useState(null)
   const [elapsed, setElapsed] = useState(0)
+  const [sentLoc, setSentLoc] = useState(null)
+  const [ending, setEnding] = useState(false)
+  const unsub = useRef(null)
+  const started = useRef(false)
 
-  const hospital = state.customPlaces[0] ? { name: state.customPlaces[0].name, sub: 'Your trusted hospital' } : { name: facilities[0].short, sub: 'Nearest 24h emergency · 1.8 km' }
-  const targets = [
-    { icon: 'hospital', ...hospital },
-    ...state.contacts.slice(0, 2).map((c) => ({ icon: 'user', name: c.name, sub: c.relationship })),
-    { icon: 'users', name: 'Nearby helpers', sub: '3 opted-in people within 1 km' },
-  ].slice(0, 4)
-  const rows = useIncident(phase === 'live', targets)
+  const send = useCallback(async () => {
+    setPhase('sending')
+    setError(null)
+    try {
+      const fix = await loc.getFix()
+      setSentLoc(fix)
+      const inc = await api.incidents.create({
+        lat: fix?.lat ?? null,
+        lng: fix?.lng ?? null,
+        accuracy: fix?.accuracy ?? null,
+        shareFields: sharedFields(me.settings.share),
+      })
+      setIncident(inc)
+      setTargets(inc.targets || [])
+      setPhase('live')
+      unsub.current = api.incidents.stream(inc.id, {
+        onEvent: (e) => {
+          if (e.type === 'target') setTargets((ts) => ts.map((t) => (t.id === e.targetId ? { ...t, status: e.status } : t)))
+          if (e.type === 'targets') setTargets(e.targets)
+          if (e.type === 'state' && e.state !== 'active') setPhase('ended')
+        },
+        onError: () => setError(new Error('Live updates stopped. Your incident is still open; call 112 if you need to.')),
+      })
+    } catch (e) {
+      setError(e)
+      setPhase('error')
+    }
+  }, [loc, me.settings.share])
 
+  // countdown
   useEffect(() => {
     if (phase !== 'countdown') return
-    if (left <= 0) { setPhase('live'); return }
+    if (left <= 0) {
+      if (!started.current) {
+        started.current = true
+        send()
+      }
+      return
+    }
     const t = setTimeout(() => setLeft((l) => l - 1), 1000)
     return () => clearTimeout(t)
-  }, [left, phase])
+  }, [left, phase, send])
 
+  // timer while live
   useEffect(() => {
     if (phase !== 'live') return
     const t = setInterval(() => setElapsed((e) => e + 1), 1000)
     return () => clearInterval(t)
   }, [phase])
+
+  useEffect(() => () => unsub.current?.(), [])
 
   useEffect(() => {
     const k = (e) => e.key === 'Escape' && phase === 'countdown' && onClose()
@@ -63,13 +100,27 @@ export default function Sos({ onClose }) {
     return () => window.removeEventListener('keydown', k)
   }, [phase, onClose])
 
+  const endIncident = async () => {
+    setEnding(true)
+    try {
+      if (incident) await api.incidents.cancel(incident.id, 'safe')
+      unsub.current?.()
+      onClose()
+    } catch (e) {
+      setError(e)
+    } finally {
+      setEnding(false)
+    }
+  }
+
+  const m = me.medical
+  const share = me.settings.share
   const r = 120
   const c = 2 * Math.PI * r
-  const m = state.medical
 
   if (phase === 'countdown') {
     return (
-      <div className="sos-overlay sos-count" role="alertdialog" aria-label="SOS countdown">
+      <div className="sos-overlay sos-count" role="alertdialog" aria-label="SOS countdown" aria-live="assertive">
         <p className="sos-count-top"><Icon name="alert" size={18} /> Emergency SOS</p>
         <div className="sos-dial">
           <svg viewBox="0 0 280 280" width="280" height="280">
@@ -79,10 +130,36 @@ export default function Sos({ onClose }) {
           <div className="sos-dial-num"><b key={left}>{left}</b><small>seconds</small></div>
         </div>
         <h2>Starting the call for help</h2>
-        <p>We'll contact {hospital.name}, your circle and nearby helpers, and share your location and medical ID.</p>
+        <p>We'll contact your hospital, your circle and nearby helpers{share.location ? ', and share your location' : ''}.</p>
         <div className="sos-count-actions">
-          <button className="btn btn-white sos-cancel" onClick={onClose}><Icon name="x" size={20} /> Cancel</button>
+          <button className="btn btn-white sos-cancel" autoFocus onClick={onClose}><Icon name="x" size={20} /> Cancel</button>
           <button className="btn sos-now" onClick={() => setLeft(0)}>Send now</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (phase === 'sending') {
+    return (
+      <div className="sos-overlay sos-count" role="alertdialog" aria-label="Sending SOS" aria-live="assertive">
+        <span className="qs-spin qs-spin-lg" />
+        <h2>Sending your SOS…</h2>
+        <p>{loc.status === 'live' || loc.status === 'locating' ? 'Getting your exact location' : 'Location is off, so we are sending without it'}.</p>
+        <a className="btn btn-white" href="tel:112"><Icon name="phone" size={18} /> Call 112 directly</a>
+      </div>
+    )
+  }
+
+  if (phase === 'error') {
+    return (
+      <div className="sos-overlay sos-count" role="alertdialog" aria-label="SOS failed" aria-live="assertive">
+        <Icon name="alert" size={56} />
+        <h2>We couldn't start the SOS</h2>
+        <p>{error?.message || 'Something went wrong.'} Call 112 now. It does not need TendAI.</p>
+        <div className="sos-count-actions">
+          <a className="btn btn-white sos-cancel" href="tel:112"><Icon name="phone" size={20} /> Call 112</a>
+          <button className="btn sos-now" onClick={send}>Try again</button>
+          <button className="btn sos-now" onClick={onClose}>Close</button>
         </div>
       </div>
     )
@@ -90,56 +167,70 @@ export default function Sos({ onClose }) {
 
   const mm = String(Math.floor(elapsed / 60)).padStart(2, '0')
   const ss = String(elapsed % 60).padStart(2, '0')
+  const helpConfirmed = targets.some((t) => HELP_CONFIRMED.includes(t.status))
+  const ended = phase === 'ended'
 
   return (
-    <div className="sos-overlay sos-live" role="dialog" aria-label="Help is on the way">
+    <div className="sos-overlay sos-live" role="dialog" aria-label="SOS incident">
       <div className="sos-live-inner">
         <header className="sos-live-head">
-          <span className="chip chip-red"><span className="dot dot-red" /> Incident live · {mm}:{ss}</span>
-          <span className="demo-tag">Demo incident</span>
+          {ended ? <span className="chip chip-grey">Incident ended</span> : <span className="chip chip-red"><span className="dot dot-red" /> Incident live · {mm}:{ss}</span>}
+          {isDemo && <span className="demo-tag">Demo incident: nobody is being contacted</span>}
         </header>
 
-        <div className="sos-hero-msg">
-          <div className="sos-check"><Icon name="shield" size={40} stroke={1.8} /></div>
-          <h1>Help is on the way</h1>
-          <p>Stay where you are if it's safe. Keep your phone close. We'll show every update below.</p>
+        <div className="sos-hero-msg" aria-live="polite">
+          <div className={`sos-check ${helpConfirmed ? '' : 'is-pending'}`}><Icon name={helpConfirmed ? 'shield' : 'phone'} size={40} stroke={1.8} /></div>
+          <h1>{helpConfirmed ? 'Help is on the way' : 'Contacting help…'}</h1>
+          <p>{helpConfirmed ? 'Someone has confirmed they know. Stay where you are if it is safe, and keep your phone close.' : "We're reaching your hospital and your people now. Every update shows below."}</p>
         </div>
+
+        {error && <p className="form-error" style={{ justifyContent: 'center' }}><Icon name="alert" size={16} /> {error.message}</p>}
 
         <div className="sos-live-grid">
           <section className="card">
             <div className="card-head"><h3>Who we're reaching</h3><small className="muted">Updated live</small></div>
             <div className="status-rows">
-              {rows.map((x) => {
-                const [label, tone] = statusMap[x.status]
+              {targets.map((x) => {
+                const [label, tone, busy] = STATUS[x.status] || [x.status, 'grey']
                 return (
-                  <div className="status-row" key={x.name}>
-                    <span className={`hv-av tone-${tone === 'grey' ? 'grey' : tone}`}><Icon name={x.icon} size={18} /></span>
-                    <div className="hv-who"><strong>{x.name}</strong><small>{x.sub}</small></div>
-                    <span className={`chip chip-${tone}`}>{(x.status === 'calling' || x.status === 'sms' || x.status === 'calling2') && <span className="spin" />}{label}</span>
+                  <div className="status-row" key={x.id}>
+                    <span className={`hv-av tone-${tone}`}><Icon name={KIND_ICON[x.kind] || 'user'} size={18} /></span>
+                    <div className="hv-who"><strong>{x.name}</strong><small>{x.detail}</small></div>
+                    <span className={`chip chip-${tone}`}>{busy && <span className="spin" />}{label}</span>
                   </div>
                 )
               })}
+              {targets.length <= 2 && (
+                <p className="muted">Tip: add more emergency contacts so more people can be reached.</p>
+              )}
             </div>
-            <p className="note"><Icon name="info" size={14} /> Calling is not the same as answered. We'll show failures and retry.</p>
+            <p className="note"><Icon name="info" size={14} /> Calling is not the same as answered. We show failures and retry.</p>
           </section>
 
           <section className="card sos-med">
             <div className="card-head"><h3>Shared with responders</h3><Icon name="lock" size={16} /></div>
             <div className="sos-med-top">
-              <div><small>Name</small><b>{state.profile.name || '–'}</b></div>
-              <div><small>Blood</small><b className="red">{m.bloodGroup || '–'}</b></div>
-              <div><small>Genotype</small><b>{m.genotype || '–'}</b></div>
+              <div><small>Name</small><b>{share.nameAge ? me.profile.name || '–' : 'Not shared'}</b></div>
+              <div><small>Blood</small><b className="red">{share.bloodGenotype ? m.bloodGroup || '–' : '—'}</b></div>
+              <div><small>Genotype</small><b>{share.bloodGenotype ? m.genotype || '–' : '—'}</b></div>
             </div>
-            <p className="sos-med-line"><strong>Allergies:</strong> {m.allergies.join(', ') || 'None'}</p>
-            <p className="sos-med-line"><strong>Conditions:</strong> {m.conditions.join(', ') || 'None'}</p>
-            <p className="sos-med-line"><Icon name="pin" size={14} /> Location shared · Abeokuta, Ogun</p>
+            {share.allergies && <p className="sos-med-line"><strong>Allergies:</strong> {m.allergies.join(', ') || 'None'}</p>}
+            {share.conditionsMeds && <p className="sos-med-line"><strong>Conditions:</strong> {m.conditions.join(', ') || 'None'}</p>}
+            <p className="sos-med-line">
+              <Icon name="pin" size={14} />
+              {!share.location ? 'Location not shared (turned off in Settings)' : sentLoc ? `Location shared · ${sentLoc.lat.toFixed(5)}, ${sentLoc.lng.toFixed(5)} (±${sentLoc.accuracy} m)` : 'Location unavailable: tell the hospital where you are'}
+            </p>
           </section>
         </div>
 
         <div className="sos-live-actions">
           <a className="btn btn-danger" href="tel:112"><Icon name="phone" size={18} /> Call 112 directly</a>
-          <a className="btn btn-ghost" href="#/app/cpr" onClick={onClose}><Icon name="cpr" size={18} /> Open CPR guide</a>
-          <button className="btn btn-ghost" onClick={onClose}><Icon name="check" size={18} /> I'm safe, end incident</button>
+          <button className="btn btn-ghost" onClick={() => { nav('/app/cpr'); onClose() }}><Icon name="cpr" size={18} /> Open CPR guide</button>
+          {ended ? (
+            <button className="btn btn-ghost" onClick={onClose}><Icon name="x" size={18} /> Close</button>
+          ) : (
+            <button className="btn btn-ghost" disabled={ending} onClick={endIncident}><Icon name="check" size={18} /> {ending ? 'Ending…' : "I'm safe, end incident"}</button>
+          )}
         </div>
       </div>
     </div>

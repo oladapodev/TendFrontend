@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from '../components/Icon.jsx'
-import { useStore } from './store.jsx'
+import { api, isDemo } from '../api/index.js'
 
 const prompts = [
   'What should I do if someone faints?',
@@ -9,38 +9,54 @@ const prompts = [
   'Help me prepare questions for my doctor',
 ]
 
-function reply(text, state) {
-  const t = text.toLowerCase()
-  if (t.includes('faint'))
-    return "If someone faints: lay them flat and raise their legs about 30 cm. Loosen tight clothing and check that they are breathing. If they don't wake within a minute, or they aren't breathing normally, press SOS or call 112 and start CPR. The CPR guide is in your tools."
-  if (t.includes('genotype'))
-    return `Your genotype is ${state.medical.genotype || 'not recorded yet'}. Genotype describes the type of haemoglobin in your blood. AA is the usual type. AS means you carry the sickle-cell trait but usually have no symptoms. SS means sickle-cell disease. It matters most for family planning, so a doctor or genetic counsellor can explain what it means for you.`
-  if (t.includes('blood pressure') || t.includes('eat'))
-    return 'Foods that can help: more vegetables (ugwu, spinach, garden egg), fruit such as bananas and oranges, beans and fish, and less salt, seasoning cubes and fried food. Check your readings regularly and follow the plan your doctor gave you. You can log your meals in Diet for personalised suggestions.'
-  if (t.includes('doctor') || t.includes('question'))
-    return 'Good questions to bring:\n1. What is my diagnosis, in simple words?\n2. What are my treatment options and their side effects?\n3. What should I watch out for at home?\n4. When should I come back, or go to emergency?\nI can save these to your notes.'
-  return "I can explain health information, help you prepare for a visit, and point you to the right tool in TendAI. For anything urgent, press the red SOS button. What would you like to know?"
-}
-
-export default function Agent() {
-  const { state } = useStore()
-  const first = state.profile.name.split(' ')[0] || 'there'
-  const [msgs, setMsgs] = useState([{ from: 'ai', text: `Hi ${first}, I'm TendTalk. Ask me a health question, or ask for help preparing for a hospital visit.` }])
+export default function Agent({ me }) {
+  const first = me.profile.name.split(' ')[0] || 'there'
+  const [msgs, setMsgs] = useState([{ role: 'assistant', content: `Hi ${first}, I'm TendTalk. Ask me a health question, or ask for help preparing for a hospital visit.` }])
   const [text, setText] = useState('')
-  const [typing, setTyping] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
   const end = useRef(null)
-  useEffect(() => end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), [msgs, typing])
+  const stop = useRef(null)
+
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [msgs, busy])
+  useEffect(() => () => stop.current?.(), [])
 
   const send = (t) => {
     const v = (t ?? text).trim()
-    if (!v) return
-    setMsgs((m) => [...m, { from: 'me', text: v }])
+    if (!v || busy) return
+    const history = [...msgs, { role: 'user', content: v }]
+    setMsgs([...history, { role: 'assistant', content: '', pending: true }])
     setText('')
-    setTyping(true)
-    setTimeout(() => {
-      setMsgs((m) => [...m, { from: 'ai', text: reply(v, state) }])
-      setTyping(false)
-    }, 900)
+    setBusy(true)
+    setError(null)
+    const finish = () => {
+      setBusy(false)
+      setMsgs((m) => m.map((x, i) => (i === m.length - 1 ? { ...x, pending: false } : x)))
+    }
+    stop.current = api.agent.chat(
+      history.map(({ role, content }) => ({ role, content })),
+      {
+        onEvent: (e) => {
+          const piece = typeof e === 'string' ? e : e.text || ''
+          if (!piece) return
+          setMsgs((m) => m.map((x, i) => (i === m.length - 1 ? { ...x, content: x.content + piece } : x)))
+        },
+        onDone: finish,
+        onError: (err) => {
+          setError(err)
+          setMsgs((m) => (m[m.length - 1]?.content ? m : m.slice(0, -1)))
+          setBusy(false)
+        },
+      },
+    )
+  }
+
+  const cancel = () => {
+    stop.current?.()
+    setBusy(false)
+    setMsgs((m) => m.map((x, i) => (i === m.length - 1 ? { ...x, pending: false } : x)))
   }
 
   return (
@@ -51,22 +67,17 @@ export default function Agent() {
           <strong>TendTalk</strong>
           <small><span className="dot-online" /> Your TendAI health companion</small>
         </div>
-        <span className="demo-tag" style={{ marginLeft: 'auto' }}>Demo replies</span>
+        {isDemo && <span className="demo-tag" style={{ marginLeft: 'auto' }}>Demo replies</span>}
       </div>
 
-      <div className="agent-body">
+      <div className="agent-body" aria-live="polite">
         {msgs.map((m, n) => (
-          <div key={n} className={`msg msg-${m.from}`}>
-            {m.from === 'ai' && <span className="msg-av"><Icon name="sparkle" size={14} /></span>}
-            <p>{m.text}</p>
+          <div key={n} className={`msg msg-${m.role === 'user' ? 'me' : 'ai'}`}>
+            {m.role !== 'user' && <span className="msg-av"><Icon name="sparkle" size={14} /></span>}
+            {m.pending && !m.content ? <p className="typing"><i /><i /><i /></p> : <p>{m.content}</p>}
           </div>
         ))}
-        {typing && (
-          <div className="msg msg-ai">
-            <span className="msg-av"><Icon name="sparkle" size={14} /></span>
-            <p className="typing"><i /><i /><i /></p>
-          </div>
-        )}
+        {error && <p className="form-error"><Icon name="alert" size={16} /> {error.message} <button className="link-btn" onClick={() => send(msgs.filter((m) => m.role === 'user').at(-1)?.content)}>Retry</button></p>}
         {msgs.length === 1 && (
           <div className="agent-prompts">
             {prompts.map((p) => <button key={p} onClick={() => send(p)}>{p}</button>)}
@@ -76,11 +87,14 @@ export default function Agent() {
       </div>
 
       <form className="agent-input" onSubmit={(e) => { e.preventDefault(); send() }}>
-        <button type="button" className="icon-btn" aria-label="Voice input"><Icon name="mic" size={20} /></button>
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask TendTalk anything about your health…" />
-        <button className="send-btn" aria-label="Send" disabled={!text.trim()}><Icon name="send" size={18} /></button>
+        <input aria-label="Message TendTalk" value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask TendTalk anything about your health…" />
+        {busy ? (
+          <button type="button" className="send-btn" onClick={cancel} aria-label="Stop reply"><Icon name="x" size={18} /></button>
+        ) : (
+          <button className="send-btn" aria-label="Send" disabled={!text.trim()}><Icon name="send" size={18} /></button>
+        )}
       </form>
-      <p className="agent-foot">AI can explain and organise. Qualified professionals make clinical decisions.</p>
+      <p className="agent-foot">AI can explain and organise. Qualified professionals make clinical decisions. In an emergency, press SOS or call 112.</p>
     </div>
   )
 }

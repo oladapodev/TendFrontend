@@ -1,14 +1,38 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router'
 import Icon from '../components/Icon.jsx'
-import { useStore, bmi } from './store.jsx'
-import { go } from '../router.js'
+import QueryState, { Spinner } from '../components/QueryState.jsx'
+import { useContacts, useSaveContact, useDeleteContact, usePlaces, useUpdateMe, useAnalyseDiet, useFacilities } from './data.js'
+import { useLocation } from './location.jsx'
+import { useAuth } from './auth.jsx'
+import { bmi } from './Onboarding.jsx'
 
 /* ---------- shared bits ---------- */
 
 export function Modal({ title, onClose, children, footer, wide }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const prev = document.activeElement
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'Tab' && ref.current) {
+        const f = ref.current.querySelectorAll('button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])')
+        if (!f.length) return
+        const first = f[0]
+        const last = f[f.length - 1]
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      prev?.focus?.()
+    }
+  }, [onClose])
   return (
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`modal ${wide ? 'modal-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+      <div ref={ref} className={`modal ${wide ? 'modal-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <header className="modal-head">
           <h2>{title}</h2>
           <button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="x" size={20} /></button>
@@ -20,7 +44,7 @@ export function Modal({ title, onClose, children, footer, wide }) {
   )
 }
 
-function TagInput({ value, onChange, placeholder, suggestions = [] }) {
+function TagInput({ value, onChange, placeholder, suggestions = [], label }) {
   const [t, setT] = useState('')
   const add = (v) => {
     const s = v.trim()
@@ -33,10 +57,11 @@ function TagInput({ value, onChange, placeholder, suggestions = [] }) {
         {value.map((v) => (
           <span className="tag" key={v}>
             {v}
-            <button onClick={() => onChange(value.filter((x) => x !== v))} aria-label={`Remove ${v}`}><Icon name="x" size={12} stroke={3} /></button>
+            <button type="button" onClick={() => onChange(value.filter((x) => x !== v))} aria-label={`Remove ${v}`}><Icon name="x" size={12} stroke={3} /></button>
           </span>
         ))}
         <input
+          aria-label={label}
           value={t}
           placeholder={value.length ? 'Add another…' : placeholder}
           onChange={(e) => setT(e.target.value)}
@@ -50,7 +75,7 @@ function TagInput({ value, onChange, placeholder, suggestions = [] }) {
       {suggestions.length > 0 && (
         <div className="tags-sugg">
           {suggestions.filter((s) => !value.includes(s)).map((s) => (
-            <button key={s} onClick={() => add(s)}><Icon name="plus" size={12} stroke={3} /> {s}</button>
+            <button type="button" key={s} onClick={() => add(s)}><Icon name="plus" size={12} stroke={3} /> {s}</button>
           ))}
         </div>
       )}
@@ -58,7 +83,7 @@ function TagInput({ value, onChange, placeholder, suggestions = [] }) {
   )
 }
 
-function SectionHead({ icon, tone, title, text, action }) {
+export function SectionHead({ icon, tone, title, text, action }) {
   return (
     <div className="sec-head">
       <span className={`sec-ico tone-${tone}`}><Icon name={icon} size={24} /></span>
@@ -71,26 +96,38 @@ function SectionHead({ icon, tone, title, text, action }) {
   )
 }
 
+function SaveState({ mutation }) {
+  if (mutation.isPending) return <span className="save-state">Saving…</span>
+  if (mutation.isError) return <span className="save-state is-err"><Icon name="alert" size={14} /> Not saved: {mutation.error.message}</span>
+  if (mutation.isSuccess) return <span className="save-state is-ok"><Icon name="check" size={14} stroke={3} /> Saved</span>
+  return null
+}
+
 /* ---------- Home ---------- */
 
-export function Home({ onSos }) {
-  const { state } = useStore()
-  const m = state.medical
+export function Home({ me, onSos }) {
+  const contacts = useContacts()
+  const places = usePlaces()
+  const loc = useLocation()
+  const facilities = useFacilities(loc.center)
+  const m = me.medical
+  const nearest = facilities.data?.[0]
+  const nContacts = contacts.data?.length
   const tiles = [
-    { id: 'circle', icon: 'users', tone: 'green', label: 'Emergency contacts', meta: `${state.contacts.length} people in your circle` },
-    { id: 'medical', icon: 'drop', tone: 'red', label: 'Medical ID', meta: `${m.bloodGroup || '–'} · Genotype ${m.genotype || '–'}` },
-    { id: 'locator', icon: 'map', tone: 'blue', label: 'Help Locator', meta: 'Nearest care 0.9 km' },
-    { id: 'diet', icon: 'apple', tone: 'amber', label: 'Diet', meta: state.dietResult ? 'Plan ready' : "Log today's meals" },
-    { id: 'fit', icon: 'activity', tone: 'purple', label: 'Fit Health', meta: `${state.fit.steps.toLocaleString()} steps today` },
+    { id: 'circle', icon: 'users', tone: 'green', label: 'Emergency contacts', meta: nContacts == null ? '…' : nContacts ? `${nContacts} in your circle` : 'Add your first contact' },
+    { id: 'medical', icon: 'drop', tone: 'red', label: 'Medical ID', meta: m.bloodGroup ? `${m.bloodGroup} · Genotype ${m.genotype || '–'}` : 'Add blood group' },
+    { id: 'locator', icon: 'map', tone: 'blue', label: 'Help Locator', meta: nearest ? `Nearest care ${nearest.distanceKm} km` : 'Find care near you' },
+    { id: 'diet', icon: 'apple', tone: 'amber', label: 'Diet', meta: me.dietResult ? 'Plan ready' : "Log today's meals" },
+    { id: 'fit', icon: 'activity', tone: 'purple', label: 'Fit Health', meta: `${me.fit.steps.toLocaleString()} steps today` },
     { id: 'cpr', icon: 'cpr', tone: 'red', label: 'CPR guide', meta: 'Step by step' },
     { id: 'agent', icon: 'chat', tone: 'green', label: 'Talk to TendTalk', meta: 'Ask a health question' },
   ]
   const checks = [
-    ['Profile', !!state.profile.name],
-    ['Location', state.permissions.location === 'granted'],
-    ['2+ contacts', state.contacts.length >= 2],
+    ['Profile', !!me.profile.name],
+    ['Location on', loc.status === 'live'],
+    ['2+ contacts', (nContacts || 0) >= 2],
     ['Medical ID', !!m.bloodGroup],
-    ['Trusted hospital', state.customPlaces.length > 0],
+    ['Trusted hospital', (places.data?.length || 0) > 0],
   ]
   const done = checks.filter((c) => c[1]).length
 
@@ -100,10 +137,10 @@ export function Home({ onSos }) {
         <div className="sos-hero-copy">
           <span className="chip chip-red"><Icon name="shield" size={14} /> TendSOS</span>
           <h2>Need urgent help?</h2>
-          <p>Press the button to start the workflow. You'll have <strong>{state.sosDelay} seconds</strong> to cancel before we contact your hospital, your circle and opted-in helpers.</p>
+          <p>Press the button to start the workflow. You'll have <strong>{me.settings.sosDelay} seconds</strong> to cancel before we contact your hospital, your circle and opted-in helpers.</p>
           <div className="sos-hero-actions">
             <a className="btn btn-ghost btn-sm" href="tel:112"><Icon name="phone" size={16} /> Call 112 directly</a>
-            <a className="link-btn" href="#/app/settings">Change countdown</a>
+            <Link className="link-btn" to="/app/settings">Change countdown</Link>
           </div>
         </div>
         <button className="sos-big" onClick={onSos} aria-label="Start emergency SOS">
@@ -120,11 +157,11 @@ export function Home({ onSos }) {
           <h3 className="h-label">Your tools</h3>
           <div className="tiles">
             {tiles.map((t) => (
-              <a key={t.id} href={`#/app/${t.id}`} className="tile">
+              <Link key={t.id} to={`/app/${t.id}`} className="tile">
                 <span className={`tile-ico tone-${t.tone}`}><Icon name={t.icon} size={28} stroke={1.8} /></span>
                 <strong>{t.label}</strong>
                 <small>{t.meta}</small>
-              </a>
+              </Link>
             ))}
           </div>
         </section>
@@ -146,8 +183,8 @@ export function Home({ onSos }) {
           </div>
           <div className="card card-green">
             <Icon name="sparkle" size={20} />
-            <p><strong>Tip from TendTalk:</strong> add a hospital you trust in Help Locator. It will be called first during an SOS.</p>
-            <a className="btn btn-white btn-sm" href="#/app/locator">Open Help Locator</a>
+            <p><strong>Tip:</strong> add a hospital you trust in Help Locator. It will be called first during an SOS.</p>
+            <Link className="btn btn-white btn-sm" to="/app/locator">Open Help Locator</Link>
           </div>
         </aside>
       </div>
@@ -157,18 +194,18 @@ export function Home({ onSos }) {
 
 /* ---------- Emergency contacts ---------- */
 
-const relationships = ['Parent', 'Sibling', 'Spouse / Partner', 'Child', 'Friend', 'Neighbour', 'Colleague', 'Doctor', 'Other']
+const relationships = ['Parent', 'Sibling', 'Spouse / Partner', 'Child', 'Friend', 'Neighbour', 'Colleague', 'Doctor', 'Trusted person', 'Other']
+const validPhone = (p) => p.replace(/\D/g, '').length >= 10
 
 export function Circle() {
-  const { state, update } = useStore()
+  const contacts = useContacts()
+  const places = usePlaces()
+  const saveC = useSaveContact()
+  const delC = useDeleteContact()
   const empty = { name: '', phone: '', relationship: 'Sibling', notify: ['call', 'sms'] }
   const [edit, setEdit] = useState(null)
-  const save = () => {
-    const c = { ...edit, id: edit.id || `c${Date.now()}` }
-    update((s) => ({ contacts: edit.id ? s.contacts.map((x) => (x.id === c.id ? c : x)) : [...s.contacts, c] }))
-    setEdit(null)
-  }
-  const remove = (id) => update((s) => ({ contacts: s.contacts.filter((c) => c.id !== id) }))
+  const close = () => { setEdit(null); saveC.reset() }
+  const save = () => saveC.mutate({ ...edit, name: edit.name.trim(), phone: edit.phone.trim() }, { onSuccess: close })
   const toggle = (k) => setEdit({ ...edit, notify: edit.notify.includes(k) ? edit.notify.filter((x) => x !== k) : [...edit.notify, k] })
 
   return (
@@ -179,39 +216,44 @@ export function Circle() {
         action={<button className="btn btn-primary" onClick={() => setEdit(empty)}><Icon name="plus" size={18} /> Add contact</button>}
       />
 
-      <div className="contact-grid">
-        {state.contacts.map((c, n) => (
-          <article className="contact" key={c.id}>
-            <span className="contact-order">{n + 1}</span>
-            <span className="avatar avatar-lg">{c.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</span>
-            <div className="contact-body">
-              <strong>{c.name}</strong>
-              <span className="chip chip-green">{c.relationship}</span>
-              <small><Icon name="phone" size={13} /> {c.phone}</small>
-              <div className="contact-via">
-                {c.notify.includes('call') && <span className="chip chip-grey"><Icon name="phone" size={12} /> Call</span>}
-                {c.notify.includes('sms') && <span className="chip chip-grey"><Icon name="message" size={12} /> SMS</span>}
-                {c.notify.includes('whatsapp') && <span className="chip chip-grey"><Icon name="chat" size={12} /> WhatsApp</span>}
-              </div>
-            </div>
-            <div className="contact-actions">
-              <button className="icon-btn" onClick={() => setEdit(c)} aria-label={`Edit ${c.name}`}><Icon name="edit" size={18} /></button>
-              <button className="icon-btn" onClick={() => remove(c.id)} aria-label={`Remove ${c.name}`}><Icon name="trash" size={18} /></button>
-            </div>
-          </article>
-        ))}
-        <button className="contact contact-add" onClick={() => setEdit(empty)}>
-          <span className="tile-ico tone-green"><Icon name="plus" size={24} /></span>
-          <strong>Add someone you trust</strong>
-          <small>Family, friends, or your doctor</small>
-        </button>
-      </div>
+      <QueryState query={contacts} loadingLabel="Loading contacts…">
+        {(list) => (
+          <div className="contact-grid">
+            {list.map((c, n) => (
+              <article className="contact" key={c.id}>
+                <span className="contact-order">{n + 1}</span>
+                <span className="avatar avatar-lg">{c.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}</span>
+                <div className="contact-body">
+                  <strong>{c.name}</strong>
+                  <span className="chip chip-green">{c.relationship}</span>
+                  <small><Icon name="phone" size={13} /> {c.phone}</small>
+                  <div className="contact-via">
+                    {c.notify?.includes('call') && <span className="chip chip-grey"><Icon name="phone" size={12} /> Call</span>}
+                    {c.notify?.includes('sms') && <span className="chip chip-grey"><Icon name="message" size={12} /> SMS</span>}
+                    {c.notify?.includes('whatsapp') && <span className="chip chip-grey"><Icon name="chat" size={12} /> WhatsApp</span>}
+                  </div>
+                </div>
+                <div className="contact-actions">
+                  <button className="icon-btn" onClick={() => setEdit(c)} aria-label={`Edit ${c.name}`}><Icon name="edit" size={18} /></button>
+                  <button className="icon-btn" onClick={() => window.confirm(`Remove ${c.name} from your emergency contacts?`) && delC.mutate(c.id)} aria-label={`Remove ${c.name}`}><Icon name="trash" size={18} /></button>
+                </div>
+              </article>
+            ))}
+            <button className="contact contact-add" onClick={() => setEdit(empty)}>
+              <span className="tile-ico tone-green"><Icon name="plus" size={24} /></span>
+              <strong>{list.length ? 'Add someone you trust' : 'Add your first emergency contact'}</strong>
+              <small>Family, friends, or your doctor</small>
+            </button>
+          </div>
+        )}
+      </QueryState>
+      {delC.isError && <p className="form-error"><Icon name="alert" size={16} /> Couldn't remove: {delC.error.message}</p>}
 
-      {state.customPlaces.length > 0 && (
+      {places.data?.length > 0 && (
         <>
           <h3 className="h-label">Your trusted hospitals</h3>
           <div className="contact-grid">
-            {state.customPlaces.map((p) => (
+            {places.data.map((p) => (
               <article className="contact" key={p.id}>
                 <span className="tile-ico tone-blue"><Icon name="hospital" size={22} /></span>
                 <div className="contact-body">
@@ -225,16 +267,18 @@ export function Circle() {
         </>
       )}
 
-      <p className="note"><Icon name="info" size={16} /> Contacts are called in this order. Each person only receives what you allow. Calls and texts need their consent in the real service.</p>
+      <p className="note"><Icon name="info" size={16} /> Contacts are reached in this order. Each person only receives what you allow in Settings.</p>
 
       {edit && (
         <Modal
           title={edit.id ? 'Edit contact' : 'Add emergency contact'}
-          onClose={() => setEdit(null)}
+          onClose={close}
           footer={
             <>
-              <button className="btn btn-ghost" onClick={() => setEdit(null)}>Cancel</button>
-              <button className="btn btn-primary" disabled={!edit.name.trim() || edit.phone.replace(/\D/g, '').length < 7} onClick={save}>Save contact</button>
+              <button className="btn btn-ghost" onClick={close}>Cancel</button>
+              <button className="btn btn-primary" disabled={!edit.name.trim() || !validPhone(edit.phone) || !edit.notify.length || saveC.isPending} onClick={save}>
+                {saveC.isPending ? 'Saving…' : 'Save contact'}
+              </button>
             </>
           }
         >
@@ -253,12 +297,13 @@ export function Circle() {
               </div>
             </div>
             <div className="field"><span>How should we reach them?</span>
-              <div className="choice-row">
+              <div className="choice-row choice-wrap">
                 {[['call', 'Phone call', 'phone'], ['sms', 'SMS', 'message'], ['whatsapp', 'WhatsApp', 'chat']].map(([k, l, i]) => (
                   <button key={k} type="button" className={`choice choice-sm ${edit.notify.includes(k) ? 'on' : ''}`} onClick={() => toggle(k)}><Icon name={i} size={14} /> {l}</button>
                 ))}
               </div>
             </div>
+            {saveC.isError && <p className="form-error"><Icon name="alert" size={16} /> {saveC.error.message}</p>}
           </div>
         </Modal>
       )}
@@ -271,46 +316,54 @@ export function Circle() {
 const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const genotypes = ['AA', 'AS', 'AC', 'SS', 'SC']
 
-export function Medical() {
-  const { state, update } = useStore()
-  const m = state.medical
-  const set = (k, v) => update((s) => ({ medical: { ...s.medical, [k]: v } }))
-  const p = state.profile
+export function Medical({ me }) {
+  const save = useUpdateMe()
+  const [m, setM] = useState(me.medical)
+  const timer = useRef(null)
+  // Debounced autosave: chips save at once, typing waits 800 ms.
+  const set = (k, v, delay = 0) => {
+    const next = { ...m, [k]: v }
+    setM(next)
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => save.mutate({ medical: next }), delay)
+  }
+  useEffect(() => () => clearTimeout(timer.current), [])
+  const p = me.profile
 
   return (
     <div className="page">
-      <SectionHead icon="drop" tone="red" title="Medical ID" text="Emergency information for responders and the hospital. It is shared only during an SOS, and only the fields you allow." />
+      <SectionHead icon="drop" tone="red" title="Medical ID" text="Emergency information for responders and the hospital. It is shared only during an SOS, and only the fields you allow." action={<SaveState mutation={save} />} />
 
       <div className="med-layout">
         <div className="card form">
           <div className="field"><span>Blood group</span>
             <div className="choice-row choice-wrap">
               {bloodGroups.map((g) => (
-                <button key={g} className={`choice choice-sq ${m.bloodGroup === g ? 'on on-red' : ''}`} onClick={() => set('bloodGroup', g)}>{g}</button>
+                <button key={g} className={`choice choice-sq ${m.bloodGroup === g ? 'on on-red' : ''}`} aria-pressed={m.bloodGroup === g} onClick={() => set('bloodGroup', g)}>{g}</button>
               ))}
             </div>
           </div>
           <div className="field"><span>Genotype</span>
             <div className="choice-row choice-wrap">
               {genotypes.map((g) => (
-                <button key={g} className={`choice choice-sq ${m.genotype === g ? 'on' : ''}`} onClick={() => set('genotype', g)}>{g}</button>
+                <button key={g} className={`choice choice-sq ${m.genotype === g ? 'on' : ''}`} aria-pressed={m.genotype === g} onClick={() => set('genotype', g)}>{g}</button>
               ))}
             </div>
           </div>
           <div className="field"><span>Allergies</span>
-            <TagInput value={m.allergies} onChange={(v) => set('allergies', v)} placeholder="Type and press Enter" suggestions={['Penicillin', 'Sulfa drugs', 'Peanuts', 'Shellfish', 'Latex']} />
+            <TagInput label="Allergies" value={m.allergies} onChange={(v) => set('allergies', v)} placeholder="Type and press Enter" suggestions={['Penicillin', 'Sulfa drugs', 'Peanuts', 'Shellfish', 'Latex']} />
           </div>
           <div className="field"><span>Known infections</span>
-            <TagInput value={m.infections} onChange={(v) => set('infections', v)} placeholder="e.g. Hepatitis B" suggestions={['Hepatitis B', 'Hepatitis C', 'HIV', 'Tuberculosis']} />
+            <TagInput label="Known infections" value={m.infections} onChange={(v) => set('infections', v)} placeholder="e.g. Hepatitis B" suggestions={['Hepatitis B', 'Hepatitis C', 'HIV', 'Tuberculosis']} />
           </div>
           <div className="field"><span>Medical conditions</span>
-            <TagInput value={m.conditions} onChange={(v) => set('conditions', v)} placeholder="e.g. Asthma" suggestions={['Asthma', 'Diabetes', 'Hypertension', 'Sickle cell', 'Epilepsy']} />
+            <TagInput label="Medical conditions" value={m.conditions} onChange={(v) => set('conditions', v)} placeholder="e.g. Asthma" suggestions={['Asthma', 'Diabetes', 'Hypertension', 'Sickle cell', 'Epilepsy']} />
           </div>
           <div className="field"><span>Current medications</span>
-            <TagInput value={m.medications} onChange={(v) => set('medications', v)} placeholder="e.g. Metformin 500mg" />
+            <TagInput label="Current medications" value={m.medications} onChange={(v) => set('medications', v)} placeholder="e.g. Metformin 500mg" />
           </div>
           <label className="field"><span>Notes for responders</span>
-            <textarea className="input" value={m.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Anything a first responder should know" />
+            <textarea className="input" value={m.notes} onChange={(e) => set('notes', e.target.value, 800)} placeholder="Anything a first responder should know" />
           </label>
         </div>
 
@@ -333,7 +386,7 @@ export function Medical() {
               <dt>Medication</dt><dd>{m.medications.join(', ') || 'None recorded'}</dd>
             </dl>
           </div>
-          <p className="note"><Icon name="lock" size={16} /> Saved automatically. You can pick which fields are shared in Settings.</p>
+          <p className="note"><Icon name="lock" size={16} /> Saved automatically. Choose which fields are shared in <Link className="link-btn" to="/app/settings">Settings</Link>.</p>
         </aside>
       </div>
     </div>
@@ -343,49 +396,16 @@ export function Medical() {
 /* ---------- Diet ---------- */
 
 const mealChips = ['Eba', 'Amala', 'Pounded yam', 'Rice', 'Jollof rice', 'Beans', 'Bread', 'Tea', 'Akara', 'Moi moi', 'Plantain', 'Yam', 'Egusi soup', 'Okra soup', 'Fish', 'Chicken', 'Indomie', 'Garri', 'Pap (ogi)', 'Suya', 'Soft drink']
+const emptyMeals = { breakfast: '', lunch: '', dinner: '', snacks: '' }
 
-function analyseMeals(meals) {
-  const all = Object.values(meals).join(' ').toLowerCase()
-  const has = (...w) => w.some((x) => all.includes(x))
-  const recs = []
-  if (!has('orange', 'banana', 'pawpaw', 'mango', 'apple', 'watermelon', 'pineapple', 'guava', 'fruit'))
-    recs.push({ icon: 'apple', tone: 'amber', title: 'Add fruit daily', text: 'Try 2 servings a day: an orange or a slice of pawpaw in the morning, and a banana or guava in the afternoon.', tag: 'Vitamin C · fibre' })
-  if (has('eba', 'amala', 'pounded yam', 'garri', 'rice', 'indomie', 'bread', 'yam'))
-    recs.push({ icon: 'scale', tone: 'purple', title: 'Balance the starch', text: 'Your meals are high in swallow, rice or bread. Keep that to about a quarter of the plate and fill half with vegetables (ugwu, ewedu, spinach).', tag: 'Portion' })
-  if (!has('beans', 'fish', 'chicken', 'egg', 'meat', 'moi moi', 'akara'))
-    recs.push({ icon: 'activity', tone: 'green', title: 'More protein', text: 'Add beans, moi moi, eggs or fish to at least two meals a day.', tag: 'Protein' })
-  if (has('soft drink', 'coke', 'malt', 'sugar', 'juice'))
-    recs.push({ icon: 'water', tone: 'blue', title: 'Swap sugary drinks', text: 'Replace soft drinks with water or zobo without added sugar. Aim for 8 cups of water a day.', tag: 'Hydration' })
-  recs.push({ icon: 'sparkle', tone: 'green', title: 'Helpful extras', text: 'Groundnuts or tiger nuts as a snack, and leafy greens for iron. Ask a pharmacist before starting any supplement.', tag: 'Snacks' })
-  return {
-    recs,
-    schedule: [
-      ['7:00 – 8:00', 'Breakfast', 'Protein + fruit (e.g. moi moi, pap, orange)'],
-      ['10:30', 'Snack', 'Fruit or a handful of groundnuts'],
-      ['13:00 – 14:00', 'Lunch', 'Half vegetables, quarter protein, quarter starch'],
-      ['16:30', 'Snack', 'Banana, cucumber or tiger nuts'],
-      ['19:00', 'Dinner', 'Lighter meal at least 2 hours before bed'],
-    ],
-  }
-}
-
-export function Diet() {
-  const { state, update } = useStore()
+export function Diet({ me }) {
+  const analyse = useAnalyseDiet()
   const [open, setOpen] = useState(false)
-  const [meals, setMeals] = useState(state.meals)
-  const [loading, setLoading] = useState(false)
-  const r = state.dietResult
-  const addChip = (k, c) => setMeals({ ...meals, [k]: meals[k] ? `${meals[k]}, ${c.toLowerCase()}` : c })
+  const [meals, setMeals] = useState(me.meals || emptyMeals)
   const [focus, setFocus] = useState('breakfast')
-
-  const submit = () => {
-    setLoading(true)
-    setTimeout(() => {
-      update({ meals, dietResult: analyseMeals(meals) })
-      setLoading(false)
-      setOpen(false)
-    }, 1200)
-  }
+  const r = me.dietResult
+  const addChip = (k, c) => setMeals({ ...meals, [k]: meals[k] ? `${meals[k]}, ${c.toLowerCase()}` : c })
+  const submit = () => analyse.mutate(meals, { onSuccess: () => setOpen(false) })
 
   return (
     <div className="page">
@@ -407,11 +427,11 @@ export function Diet() {
           <section>
             <h3 className="h-label"><Icon name="sparkle" size={16} /> AI recommendations</h3>
             <div className="rec-list">
-              {r.recs.map((x) => (
+              {r.recommendations.map((x) => (
                 <article className="rec" key={x.title}>
-                  <span className={`tile-ico tone-${x.tone}`}><Icon name={x.icon} size={22} /></span>
+                  <span className={`tile-ico tone-${x.tone || 'green'}`}><Icon name={x.icon || 'sparkle'} size={22} /></span>
                   <div>
-                    <div className="rec-head"><strong>{x.title}</strong><span className="chip chip-grey">{x.tag}</span></div>
+                    <div className="rec-head"><strong>{x.title}</strong>{x.tag && <span className="chip chip-grey">{x.tag}</span>}</div>
                     <p>{x.text}</p>
                   </div>
                 </article>
@@ -421,19 +441,23 @@ export function Diet() {
           <aside className="card">
             <h3>How often to eat</h3>
             <ol className="timeline">
-              {r.schedule.map(([t, l, d]) => (
-                <li key={t}><span className="tl-time">{t}</span><div><strong>{l}</strong><small>{d}</small></div></li>
+              {r.schedule.map((s) => (
+                <li key={s.time + s.label}><span className="tl-time">{s.time}</span><div><strong>{s.label}</strong><small>{s.detail}</small></div></li>
               ))}
             </ol>
-            <h3 style={{ marginTop: 20 }}>What you told us</h3>
-            <dl className="meals-dl">
-              {Object.entries(state.meals).filter(([, v]) => v).map(([k, v]) => (<div key={k}><dt>{k}</dt><dd>{v}</dd></div>))}
-            </dl>
+            {me.meals && (
+              <>
+                <h3 style={{ marginTop: 20 }}>What you told us</h3>
+                <dl className="meals-dl">
+                  {Object.entries(me.meals).filter(([, v]) => v).map(([k, v]) => (<div key={k}><dt>{k}</dt><dd>{v}</dd></div>))}
+                </dl>
+              </>
+            )}
           </aside>
         </div>
       )}
 
-      <p className="note"><Icon name="info" size={16} /> AI can explain and organise. It is not a diagnosis. Talk to a doctor or dietitian about medical diets.</p>
+      <p className="note"><Icon name="info" size={16} /> {r?.note || 'AI can explain and organise. It is not a diagnosis.'} Talk to a doctor or dietitian about medical diets.</p>
 
       {open && (
         <Modal
@@ -442,9 +466,10 @@ export function Diet() {
           onClose={() => setOpen(false)}
           footer={
             <>
+              {analyse.isError && <span className="save-state is-err" style={{ marginRight: 'auto' }}><Icon name="alert" size={14} /> {analyse.error.message}</span>}
               <button className="btn btn-ghost" onClick={() => setOpen(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={submit} disabled={loading || !Object.values(meals).some((v) => v.trim())}>
-                {loading ? 'Analysing…' : <>Get recommendations <Icon name="sparkle" size={16} /></>}
+              <button className="btn btn-primary" onClick={submit} disabled={analyse.isPending || !Object.values(meals).some((v) => v.trim())}>
+                {analyse.isPending ? 'Analysing…' : <>Get recommendations <Icon name="sparkle" size={16} /></>}
               </button>
             </>
           }
@@ -486,19 +511,19 @@ function Ring({ value, max, color, children }) {
   )
 }
 
-export function Fit() {
-  const { state, update } = useStore()
-  const f = state.fit
-  const b = bmi(state.profile)
+export function Fit({ me }) {
+  const save = useUpdateMe()
+  const f = me.fit
+  const b = bmi(me.profile)
   const week = [5200, 7400, 8100, 4300, 9200, 6800, f.steps]
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Today']
   const maxW = Math.max(...week, f.stepGoal)
-  const setFit = (k, v) => update((s) => ({ fit: { ...s.fit, [k]: v } }))
+  const setFit = (k, v) => save.mutate({ fit: { [k]: v } })
   const bmiLabel = b ? (b < 18.5 ? ['Underweight', 'amber'] : b < 25 ? ['Healthy range', 'green'] : b < 30 ? ['Overweight', 'amber'] : ['Obese range', 'red']) : null
 
   return (
     <div className="page">
-      <SectionHead icon="activity" tone="purple" title="Fit Health" text="Your physical health at a glance. Small goals you choose. This is not live monitoring." />
+      <SectionHead icon="activity" tone="purple" title="Fit Health" text="Your physical health at a glance. Small goals you choose. This is not live monitoring." action={<span className="demo-tag">Sample data</span>} />
 
       <div className="fit-stats">
         <div className="card fit-card">
@@ -546,14 +571,13 @@ export function Fit() {
                 <small>{days[n]}</small>
               </div>
             ))}
-            <span className="bar-goal" style={{ bottom: `calc(${(f.stepGoal / maxW) * 100}% * 0.78 + 34px)` }} />
           </div>
         </div>
         <div className="card">
           <h3>Body</h3>
           <div className="body-stats">
-            <div><small>Height</small><b>{state.profile.heightCm || '–'} <em>cm</em></b></div>
-            <div><small>Weight</small><b>{state.profile.weightKg || '–'} <em>kg</em></b></div>
+            <div><small>Height</small><b>{me.profile.heightCm || '–'} <em>cm</em></b></div>
+            <div><small>Weight</small><b>{me.profile.weightKg || '–'} <em>kg</em></b></div>
             <div><small>BMI</small><b>{b || '–'}</b></div>
           </div>
           {bmiLabel && <span className={`chip chip-${bmiLabel[1]}`}>{bmiLabel[0]}</span>}
@@ -593,7 +617,7 @@ export function Cpr() {
         </ol>
         <aside className="card cpr-aside">
           <div className="cpr-img"><Icon name="cpr" size={64} stroke={1.2} /><small>CPR illustration coming soon</small></div>
-          <button className="btn btn-danger btn-block"><Icon name="heart" size={18} /> Start compression timer</button>
+          <a className="btn btn-danger btn-block" href="tel:112"><Icon name="phone" size={18} /> Call 112</a>
           <p className="note" style={{ marginTop: 12 }}><Icon name="info" size={16} /> Content to be checked by a clinician before launch.</p>
         </aside>
       </div>
@@ -603,26 +627,40 @@ export function Cpr() {
 
 /* ---------- Settings ---------- */
 
-export function Settings() {
-  const { state, update, reset } = useStore()
-  const [custom, setCustom] = useState(state.sosDelay)
+const shareFields = [
+  ['location', 'Live location'],
+  ['nameAge', 'Name and age'],
+  ['bloodGenotype', 'Blood group and genotype'],
+  ['allergies', 'Allergies'],
+  ['infections', 'Known infections'],
+  ['conditionsMeds', 'Conditions and medication'],
+]
+
+export function Settings({ me }) {
+  const save = useUpdateMe()
+  const { signOut } = useAuth()
+  const loc = useLocation()
+  const [custom, setCustom] = useState(String(me.settings.sosDelay))
+  const s = me.settings
+  const setDelay = (n) => save.mutate({ settings: { sosDelay: Math.min(30, Math.max(3, n)) } })
+
   return (
     <div className="page">
-      <SectionHead icon="settings" tone="grey" title="Settings" text="SOS countdown, what gets shared, and demo controls." />
+      <SectionHead icon="settings" tone="grey" title="Settings" text="SOS countdown, what gets shared, and your account." action={<SaveState mutation={save} />} />
       <div className="settings-grid">
         <div className="card">
           <h3>SOS countdown</h3>
           <p className="muted">Time you have to cancel after pressing SOS.</p>
           <div className="choice-row" style={{ marginTop: 14 }}>
-            {[3, 5, 10].map((s) => (
-              <button key={s} className={`choice ${state.sosDelay === s ? 'on' : ''}`} onClick={() => { update({ sosDelay: s }); setCustom(s) }}>{s} sec</button>
+            {[3, 5, 10].map((n) => (
+              <button key={n} className={`choice ${s.sosDelay === n ? 'on' : ''}`} aria-pressed={s.sosDelay === n} onClick={() => { setDelay(n); setCustom(String(n)) }}>{n} sec</button>
             ))}
           </div>
           <label className="field" style={{ marginTop: 14 }}>
-            <span>Custom (seconds)</span>
+            <span>Custom (3–30 seconds)</span>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input className="input" type="number" min="1" max="30" value={custom} onChange={(e) => setCustom(e.target.value)} />
-              <button className="btn btn-ghost" onClick={() => update({ sosDelay: Math.min(30, Math.max(1, Number(custom) || 5)) })}>Save</button>
+              <input className="input" type="number" min="3" max="30" value={custom} onChange={(e) => setCustom(e.target.value)} />
+              <button className="btn btn-ghost" onClick={() => setDelay(Number(custom) || 5)}>Save</button>
             </div>
           </label>
         </div>
@@ -630,17 +668,32 @@ export function Settings() {
           <h3>Shared during SOS</h3>
           <p className="muted">Only these fields go to the hospital and your contacts.</p>
           <ul className="toggle-list">
-            {['Live location', 'Name and age', 'Blood group and genotype', 'Allergies', 'Known infections', 'Conditions and medication'].map((l, n) => (
-              <li key={l}><span>{l}</span><label className="switch"><input type="checkbox" defaultChecked={n < 4} /><span /></label></li>
+            {shareFields.map(([k, l]) => (
+              <li key={k}>
+                <span>{l}</span>
+                <label className="switch">
+                  <input type="checkbox" aria-label={l} checked={!!s.share[k]} onChange={(e) => save.mutate({ settings: { share: { [k]: e.target.checked } } })} />
+                  <span />
+                </label>
+              </li>
             ))}
           </ul>
         </div>
         <div className="card">
-          <h3>Demo</h3>
-          <p className="muted">Clear the demo data and start onboarding again.</p>
-          <button className="btn btn-ghost" style={{ marginTop: 14 }} onClick={() => { reset(); go('/app') }}><Icon name="logout" size={18} /> Restart demo</button>
+          <h3>Location</h3>
+          <p className="muted">
+            {loc.status === 'live' ? `On · accurate to about ${loc.pos.accuracy} m.` : loc.status === 'denied' ? "Blocked in your browser. Allow location for this site in your browser's settings." : 'Off. Turn it on so SOS can share where you are.'}
+          </p>
+          {loc.status !== 'live' && loc.status !== 'denied' && <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={loc.start}><Icon name="pin" size={18} /> Turn on location</button>}
+        </div>
+        <div className="card">
+          <h3>Account</h3>
+          <p className="muted">Signed in as {me.phone}.</p>
+          <button className="btn btn-ghost" style={{ marginTop: 14 }} onClick={signOut}><Icon name="logout" size={18} /> Sign out</button>
         </div>
       </div>
     </div>
   )
 }
+
+export { Spinner }
