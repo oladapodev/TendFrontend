@@ -84,6 +84,49 @@ export function useFacilities(coords) {
   })
 }
 
+export function useReports() {
+  return useQuery({ queryKey: ['reports'], queryFn: api.reports.list })
+}
+
+// Insights depend on the saved reports, so they refetch whenever the report list changes.
+export function useReportInsights(enabled) {
+  const reports = useReports()
+  return useQuery({
+    queryKey: ['report-insights', reports.data?.map((r) => r.id).join(',')],
+    queryFn: api.reports.insights,
+    enabled: enabled && !!reports.data?.length,
+    staleTime: 5 * 60_000,
+  })
+}
+
+export function useExtractReport() {
+  return useMutation({ mutationFn: api.reports.extract })
+}
+
+export function useSaveReport() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: api.reports.create,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['reports'] }),
+  })
+}
+
+export function useDeleteReport() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: api.reports.remove,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['reports'] }),
+  })
+}
+
+export function useLoadSampleReports() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.reports.loadSamples(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['reports'] }),
+  })
+}
+
 export function useAnalyseDiet() {
   const qc = useQueryClient()
   return useMutation({

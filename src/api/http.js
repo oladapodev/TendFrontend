@@ -103,6 +103,23 @@ export function createHttpApi(baseUrl) {
     diet: {
       analyse: (meals) => request('/diet/analyse', { method: 'POST', body: { meals } }),
     },
+    reports: {
+      list: () => request('/reports'),
+      // Upload a photo/PDF; the server runs OCR and returns the values for the user to check before saving.
+      extract: async (file) => {
+        const form = new FormData()
+        form.append('file', file)
+        const headers = { Accept: 'application/json' }
+        const token = getToken()
+        if (token) headers.Authorization = `Bearer ${token}`
+        const res = await fetch(`${base}/reports/extract`, { method: 'POST', headers, body: form })
+        if (!res.ok) throw new ApiError(`Could not read the report (${res.status})`, res.status)
+        return res.json()
+      },
+      create: (report) => request('/reports', { method: 'POST', body: report }),
+      remove: (id) => request(`/reports/${id}`, { method: 'DELETE' }),
+      insights: () => request('/reports/insights'),
+    },
     medicines: {
       verify: (nafdacNo) => request(`/medicines/verify?nafdac=${encodeURIComponent(nafdacNo)}`),
     },

@@ -406,6 +406,17 @@ export function Home({ me, onSos }) {
             </Link>
           </article>
         </div>
+
+        {/* AI: health report comparison */}
+        <Link to="/app/reports" className="ai-report-card">
+          <span className="ai-badge-icon"><Icon name="clipboard" size={22} /></span>
+          <div className="ai-report-text">
+            <span className="chip chip-green"><Icon name="sparkle" size={12} /> AI · Health reports</span>
+            <h4>Compare your lab results over time</h4>
+            <p>Upload a lab report and TendAI reads the values, compares them with your past results, flags anything out of range and suggests questions for your doctor.</p>
+          </div>
+          <span className="btn btn-primary btn-sm">Open reports <Icon name="arrowRight" size={16} /></span>
+        </Link>
       </section>
     </div>
   )
