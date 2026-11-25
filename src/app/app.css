@@ -2042,15 +2042,62 @@
   .content { padding: 4px 16px 110px; }
 
   .bottombar {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; display: grid; grid-template-columns: repeat(5, 1fr);
-    background: #fff; border-top: 1px solid var(--line); padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); align-items: end;
+    position: fixed;
+    left: 14px;
+    right: 14px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    z-index: 1000;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 24px;
+    padding: 8px 6px 8px;
+    align-items: center;
+    box-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(0, 0, 0, 0.04);
   }
-  .bb-item { display: grid; justify-items: center; gap: 2px; font-size: 11px; font-weight: 700; color: var(--ink-500); }
-  .bb-ico { width: 44px; height: 32px; border-radius: 12px; display: grid; place-items: center; }
-  .bb-item.is-active { color: var(--green-700); }
-  .bb-item.is-active .bb-ico { background: var(--green-50); }
-  .bb-agent .bb-ico { width: 60px; height: 60px; border-radius: 50%; background: var(--green-600); color: #fff; margin-top: -30px; box-shadow: 0 8px 20px rgba(0, 135, 81, 0.4); border: 4px solid #fff; }
-  .bb-agent.is-active .bb-ico { background: var(--green-700); }
+  .bb-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink-500);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  .bb-ico {
+    width: 40px;
+    height: 30px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    transition: background 0.15s ease;
+  }
+  .bb-item.is-active {
+    color: var(--green-700);
+  }
+  .bb-item.is-active .bb-ico {
+    background: var(--green-50);
+  }
+  .bb-agent .bb-ico {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--green-600);
+    color: #ffffff;
+    margin-top: -26px;
+    box-shadow: 0 8px 20px rgba(0, 135, 81, 0.35);
+    border: 3.5px solid #ffffff;
+  }
+  .bb-agent.is-active .bb-ico {
+    background: var(--green-700);
+    box-shadow: 0 8px 20px rgba(0, 135, 81, 0.45);
+  }
 
   .sos-hero { grid-template-columns: 1fr; text-align: center; padding: 28px 20px; justify-items: center; }
   .sos-hero::before { width: 100%; height: 5px; bottom: auto; }
