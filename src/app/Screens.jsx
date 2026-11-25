@@ -670,8 +670,33 @@ export function Medical({ me }) {
 
 /* ---------- Diet ---------- */
 
-const mealChips = ['Eba', 'Amala', 'Pounded yam', 'Rice', 'Jollof rice', 'Beans', 'Bread', 'Tea', 'Akara', 'Moi moi', 'Plantain', 'Yam', 'Egusi soup', 'Okra soup', 'Fish', 'Chicken', 'Indomie', 'Garri', 'Pap (ogi)', 'Suya', 'Soft drink']
+const foodCategories = [
+  {
+    name: 'Swallows & Grains',
+    chips: ['Eba', 'Amala', 'Pounded yam', 'Jollof rice', 'White rice', 'Beans', 'Bread & tea', 'Yam', 'Garri', 'Indomie'],
+  },
+  {
+    name: 'Proteins',
+    chips: ['Fish (mackerel/tilapia)', 'Chicken', 'Boiled egg', 'Moi moi', 'Akara', 'Beef / Suya'],
+  },
+  {
+    name: 'Soups & Leafy Greens',
+    chips: ['Ugwu soup', 'Ewedu', 'Okra soup', 'Egusi', 'Spinach (efo riro)', 'Vegetables'],
+  },
+  {
+    name: 'Fruits & Hydration',
+    chips: ['Orange', 'Banana', 'Pawpaw', 'Watermelon', 'Tiger nuts', 'Groundnuts', 'Water (2 cups)', 'Zobo (unsweetened)'],
+  },
+]
+
 const emptyMeals = { breakfast: '', lunch: '', dinner: '', snacks: '' }
+
+const mealMeta = {
+  breakfast: { label: 'Breakfast', time: '7:00 – 9:00 AM', icon: 'sparkle', tone: 'amber', placeholder: 'e.g. Bread, egg and tea, or Akara and pap' },
+  lunch: { label: 'Lunch', time: '12:30 – 2:30 PM', icon: 'apple', tone: 'green', placeholder: 'e.g. Jollof rice with grilled fish and salad' },
+  dinner: { label: 'Dinner', time: '6:30 – 8:00 PM', icon: 'moon', tone: 'purple', placeholder: 'e.g. Small portion of eba with ugwu soup and fish' },
+  snacks: { label: 'Snacks & Drinks', time: 'Mid-morning & Afternoon', icon: 'water', tone: 'blue', placeholder: 'e.g. Groundnuts, banana, sliced pawpaw, 2 cups of water' },
+}
 
 export function Diet({ me }) {
   const analyse = useAnalyseDiet()
@@ -679,61 +704,278 @@ export function Diet({ me }) {
   const [meals, setMeals] = useState(me.meals || emptyMeals)
   const [focus, setFocus] = useState('breakfast')
   const r = me.dietResult
-  const addChip = (k, c) => setMeals({ ...meals, [k]: meals[k] ? `${meals[k]}, ${c.toLowerCase()}` : c })
+
+  const addChip = (k, chipText) => {
+    setMeals((prev) => {
+      const existing = (prev[k] || '').trim()
+      const clean = chipText.replace(/\s*\(.*?\)/, '') // clean e.g. "Fish (mackerel)" -> "Fish"
+      if (!existing) return { ...prev, [k]: clean }
+      if (existing.toLowerCase().includes(clean.toLowerCase())) return prev
+      return { ...prev, [k]: `${existing}, ${clean}` }
+    })
+  }
+
+  const openForMeal = (mealKey) => {
+    setFocus(mealKey)
+    setOpen(true)
+  }
+
   const submit = () => analyse.mutate(meals, { onSuccess: () => setOpen(false) })
+  const hasLoggedAny = Object.values(me.meals || {}).some((v) => (v || '').trim())
 
   return (
-    <div className="page">
+    <div className="page diet-page">
+      {/* 1. Header with clear purpose and actions */}
       <SectionHead
-        icon="apple" tone="amber" title="Diet"
-        text="Tell TendAI what your meals usually contain. It suggests fruit, foods and how often to eat."
-        action={<button className="btn btn-primary" onClick={() => setOpen(true)}><Icon name="plus" size={18} /> {r ? 'Update my meals' : "Log today's meals"}</button>}
+        icon="apple"
+        tone="amber"
+        title="Diet & Nutrition"
+        text="Personalized guidance for Nigerian meals. Learn to balance traditional swallows, boost leafy greens (ugwu, ewedu), and protect your health."
+        action={
+          <button className="btn btn-primary" onClick={() => setOpen(true)}>
+            <Icon name="plus" size={18} /> {hasLoggedAny ? 'Update meals' : 'Log daily meals'}
+          </button>
+        }
       />
 
-      {!r ? (
-        <div className="empty">
-          <span className="tile-ico tone-amber"><Icon name="apple" size={32} /></span>
-          <h3>No meals logged yet</h3>
-          <p>It takes under a minute. Type what you ate, or tap common Nigerian meals.</p>
-          <button className="btn btn-primary" onClick={() => setOpen(true)}>Start</button>
+      {/* 2. Educational Hero: The Balanced Nigerian Plate Infographic */}
+      <section className="diet-plate-hero card" aria-label="The balanced Nigerian plate">
+        <div className="plate-hero-copy">
+          <div className="hero-eyebrow">
+            <Icon name="sparkle" size={14} /> The 50 / 25 / 25 Nigerian Plate Rule
+          </div>
+          <h2>How to balance traditional meals</h2>
+          <p className="hero-lead">
+            You do not need foreign diets to live long and stay healthy. Traditional Nigerian staples are natural powerhouses when portioned with balance:
+          </p>
+
+          <div className="plate-breakdown">
+            <div className="plate-part part-veg">
+              <span className="plate-pct">50%</span>
+              <div className="plate-part-info">
+                <div className="plate-part-title-row">
+                  <strong>Leafy Soups &amp; Vegetables</strong>
+                  <span className="plate-tag tag-green">Abundant</span>
+                </div>
+                <small>Ugwu, ewedu, okra, efo riro, garden eggs, spinach</small>
+              </div>
+            </div>
+
+            <div className="plate-part part-protein">
+              <span className="plate-pct">25%</span>
+              <div className="plate-part-info">
+                <div className="plate-part-title-row">
+                  <strong>Quality Proteins</strong>
+                  <span className="plate-tag tag-amber">Essential</span>
+                </div>
+                <small>Fresh/smoked fish, boiled eggs, beans, moi moi, chicken</small>
+              </div>
+            </div>
+
+            <div className="plate-part part-carb">
+              <span className="plate-pct">25%</span>
+              <div className="plate-part-info">
+                <div className="plate-part-title-row">
+                  <strong>Swallow &amp; Whole Carbs</strong>
+                  <span className="plate-tag tag-orange">Controlled</span>
+                </div>
+                <small>Amala (yam flour), eba, pounded yam, brown/ofada rice</small>
+              </div>
+            </div>
+          </div>
         </div>
-      ) : (
-        <div className="diet-layout">
-          <section>
-            <h3 className="h-label"><Icon name="sparkle" size={16} /> AI recommendations</h3>
-            <div className="rec-list">
-              {r.recommendations.map((x) => (
-                <article className="rec" key={x.title}>
-                  <span className={`tile-ico tone-${x.tone || 'green'}`}><Icon name={x.icon || 'sparkle'} size={22} /></span>
+
+        <div className="plate-visual-col">
+          <div className="plate-ceramic-wrapper">
+            <div className="plate-visual">
+              <div className="plate-segment seg-veg" title="50% Leafy Greens & Soups">
+                <span className="segment-icon"><Icon name="leaf" size={18} /></span>
+                <span className="segment-pct">50%</span>
+                <span className="segment-name">Greens &amp; Soups</span>
+              </div>
+              <div className="plate-right-half">
+                <div className="plate-segment seg-protein" title="25% Quality Protein">
+                  <span className="segment-icon"><Icon name="fish" size={15} /></span>
+                  <span className="segment-pct">25%</span>
+                  <span className="segment-name">Protein</span>
+                </div>
+                <div className="plate-segment seg-carb" title="25% Swallow / Starch">
+                  <span className="segment-icon"><Icon name="bowl" size={15} /></span>
+                  <span className="segment-pct">25%</span>
+                  <span className="segment-name">Swallows</span>
+                </div>
+              </div>
+              <div className="plate-center" title="Balanced Nigerian Plate">
+                <span className="plate-center-icon"><Icon name="utensils" size={18} /></span>
+              </div>
+            </div>
+            <div className="plate-floating-badge badge-top-left">
+              <Icon name="leaf" size={13} />
+              <span>High Fiber</span>
+            </div>
+            <div className="plate-floating-badge badge-top-right">
+              <Icon name="activity" size={13} />
+              <span>Lean Protein</span>
+            </div>
+            <div className="plate-floating-badge badge-bottom">
+              <Icon name="pulse" size={13} />
+              <span>Steady Blood Sugar</span>
+            </div>
+          </div>
+          <p className="plate-caption">Ideal Lunch &amp; Dinner Proportion Guide</p>
+        </div>
+      </section>
+
+      {/* 3. Daily Meal Grid (Shows what was logged or gives 1-tap open) */}
+      <section className="diet-meals-section" aria-label="Today's logged meals">
+        <div className="section-title-row">
+          <div>
+            <h3 className="section-title">Today's Meals</h3>
+            <p className="section-subtitle">Tap any meal card to add foods or update what you ate.</p>
+          </div>
+        </div>
+
+        <div className="diet-meals-grid">
+          {Object.entries(mealMeta).map(([k, meta]) => {
+            const loggedText = (me.meals && me.meals[k]) || ''
+            return (
+              <div key={k} className={`diet-meal-card ${loggedText ? 'is-logged' : 'is-empty'}`} onClick={() => openForMeal(k)}>
+                <div className="diet-meal-head">
+                  <span className={`tile-ico tone-${meta.tone}`}><Icon name={meta.icon} size={22} /></span>
                   <div>
-                    <div className="rec-head"><strong>{x.title}</strong>{x.tag && <span className="chip chip-grey">{x.tag}</span>}</div>
+                    <strong>{meta.label}</strong>
+                    <small>{meta.time}</small>
+                  </div>
+                  <span className="meal-card-action-badge">
+                    {loggedText ? <Icon name="check" size={14} stroke={3} /> : <Icon name="plus" size={14} stroke={3} />}
+                  </span>
+                </div>
+                <div className="diet-meal-body">
+                  {loggedText ? (
+                    <div className="logged-meal-content">
+                      <div className="logged-chips-wrap">
+                        {loggedText.split(/,|\n/).map((s) => s.trim()).filter(Boolean).map((food, i) => (
+                          <span key={i} className="logged-chip">
+                            <span className="chip-bullet" />
+                            {food}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="empty-meal-hint-box">
+                      <span className="empty-hint-icon"><Icon name="plus" size={16} /></span>
+                      <p className="empty-meal-hint">Nothing logged yet. Tap to record this meal.</p>
+                    </div>
+                  )}
+                </div>
+                <div className="diet-meal-foot">
+                  <span className="meal-foot-action">{loggedText ? 'Edit meal' : '+ Log this meal'}</span>
+                  <span className="meal-foot-arrow"><Icon name="chevronRight" size={15} /></span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* 4. Recommendations & Eating Schedule */}
+      {r ? (
+        <div className="diet-results-layout">
+          <section className="diet-recs-column">
+            <h3 className="h-label"><Icon name="sparkle" size={16} /> Personalized Recommendations</h3>
+            <div className="rec-list">
+              {r.recommendations?.map((x) => (
+                <article className="rec card" key={x.title}>
+                  <span className={`tile-ico tone-${x.tone || 'green'}`}><Icon name={x.icon || 'sparkle'} size={24} /></span>
+                  <div className="rec-body">
+                    <div className="rec-head">
+                      <strong>{x.title}</strong>
+                      {x.tag && <span className="chip chip-grey">{x.tag}</span>}
+                    </div>
                     <p>{x.text}</p>
                   </div>
                 </article>
               ))}
             </div>
           </section>
-          <aside className="card">
-            <h3>How often to eat</h3>
-            <ol className="timeline">
-              {r.schedule.map((s) => (
-                <li key={s.time + s.label}><span className="tl-time">{s.time}</span><div><strong>{s.label}</strong><small>{s.detail}</small></div></li>
-              ))}
-            </ol>
-            {me.meals && (
-              <>
-                <h3 style={{ marginTop: 20 }}>What you told us</h3>
-                <dl className="meals-dl">
-                  {Object.entries(me.meals).filter(([, v]) => v).map(([k, v]) => (<div key={k}><dt>{k}</dt><dd>{v}</dd></div>))}
-                </dl>
-              </>
-            )}
+
+          <aside className="diet-sidebar-column">
+            <div className="card diet-schedule-card">
+              <div className="schedule-head">
+                <Icon name="clock" size={20} />
+                <h3>Recommended Daily Timing</h3>
+              </div>
+              <p className="schedule-sub">Eating at steady times prevents acid reflux and stabilizes blood sugar.</p>
+              <ol className="timeline">
+                {r.schedule?.map((s) => (
+                  <li key={s.time + s.label}>
+                    <span className="tl-time">{s.time}</span>
+                    <div className="tl-body">
+                      <strong>{s.label}</strong>
+                      <small>{s.detail}</small>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
           </aside>
         </div>
-      )}
+      ) : null}
 
-      <p className="note"><Icon name="info" size={16} /> {r?.note || 'AI can explain and organise. It is not a diagnosis.'} Talk to a doctor or dietitian about medical diets.</p>
+      {/* 5. TendDiet Wisdom (Full-Width Section) */}
+      <section className="diet-wisdom-section" aria-label="TendDiet Wisdom">
+        <div className="diet-wisdom-card">
+          <div className="wisdom-card-header">
+            <span className="wisdom-badge">
+              <Icon name="sparkle" size={14} /> TendDiet Wisdom
+            </span>
+            <span className="wisdom-tag">Nigerian Culinary Health</span>
+          </div>
+          <h4 className="wisdom-title">Ancient Wisdom, Modern Science</h4>
+          <p className="wisdom-lead">
+            Healthy living in Nigeria doesn't mean abandoning our cultural foods. These simple kitchen habits protect your heart and blood pressure:
+          </p>
 
+          <div className="wisdom-items-grid">
+            <div className="wisdom-item">
+              <div className="wisdom-item-head">
+                <span className="wisdom-item-badge tone-emerald">Heart &amp; BP</span>
+                <strong>Cut seasoning cubes in half</strong>
+              </div>
+              <p>
+                Flavor soups with <em>iru</em> (locust beans), ground crayfish, fresh garlic, ginger, and scotch bonnet peppers. You get authentic umami taste with over 50% less sodium.
+              </p>
+            </div>
+
+            <div className="wisdom-item">
+              <div className="wisdom-item-head">
+                <span className="wisdom-item-badge tone-blue">Portion Control</span>
+                <strong>The pre-meal water ritual</strong>
+              </div>
+              <p>
+                Drink a large glass of clean water 15 minutes before swallow meals. It activates digestive juices, curbs overeating, and stops post-meal lethargy.
+              </p>
+            </div>
+
+            <div className="wisdom-item">
+              <div className="wisdom-item-head">
+                <span className="wisdom-item-badge tone-amber">Glucose Balance</span>
+                <strong>The 2-to-1 soup-to-swallow ratio</strong>
+              </div>
+              <p>
+                Serve double the bowl volume of leafy vegetable soup relative to your swallow ball. Leafy fiber slows glucose absorption and keeps blood sugar steady.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <p className="note" style={{ marginTop: 28 }}>
+        <Icon name="info" size={16} /> {r?.note || 'AI can explain and organise. It is not a clinical diagnosis.'} Always consult a certified dietitian or medical practitioner for clinical diabetes, renal, or ulcer diets.
+      </p>
+
+      {/* 5. The Meal Logging Modal */}
       {open && (
         <Modal
           wide
@@ -741,26 +983,79 @@ export function Diet({ me }) {
           onClose={() => setOpen(false)}
           footer={
             <>
-              {analyse.isError && <span className="save-state is-err" style={{ marginRight: 'auto' }}><Icon name="alert" size={14} /> {analyse.error.message}</span>}
+              {analyse.isError && (
+                <span className="save-state is-err" style={{ marginRight: 'auto' }}>
+                  <Icon name="alert" size={14} /> {analyse.error.message}
+                </span>
+              )}
               <button className="btn btn-ghost" onClick={() => setOpen(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={submit} disabled={analyse.isPending || !Object.values(meals).some((v) => v.trim())}>
-                {analyse.isPending ? 'Analysing…' : <>Get recommendations <Icon name="sparkle" size={16} /></>}
+              <button
+                className="btn btn-primary"
+                onClick={submit}
+                disabled={analyse.isPending || !Object.values(meals).some((v) => (v || '').trim())}
+              >
+                {analyse.isPending ? 'Analysing your diet…' : <>Generate recommendations <Icon name="sparkle" size={16} /></>}
               </button>
             </>
           }
         >
-          <div className="meal-grid">
-            {['breakfast', 'lunch', 'dinner', 'snacks'].map((k) => (
-              <label className="field" key={k}>
-                <span style={{ textTransform: 'capitalize' }}>{k}</span>
-                <textarea className="input" rows={2} value={meals[k]} onFocus={() => setFocus(k)} onChange={(e) => setMeals({ ...meals, [k]: e.target.value })} placeholder={k === 'breakfast' ? 'e.g. bread and tea' : k === 'lunch' ? 'e.g. jollof rice and chicken' : k === 'dinner' ? 'e.g. eba and egusi soup' : 'e.g. biscuits, soft drink'} />
+          <div className="meal-modal-inner">
+            {/* Meal Selector Tabs */}
+            <div className="meal-tabs-row" role="tablist" aria-label="Select meal to edit">
+              {['breakfast', 'lunch', 'dinner', 'snacks'].map((k) => (
+                <button
+                  type="button"
+                  key={k}
+                  className={`meal-tab ${focus === k ? 'is-active' : ''}`}
+                  onClick={() => setFocus(k)}
+                >
+                  <Icon name={mealMeta[k].icon} size={16} />
+                  <span>{mealMeta[k].label}</span>
+                  {meals[k]?.trim() ? <span className="tab-dot" /> : null}
+                </button>
+              ))}
+            </div>
+
+            {/* Active Meal Textarea */}
+            <div className="active-meal-field">
+              <label className="field">
+                <span className="active-field-label">
+                  What did you eat for <strong>{mealMeta[focus].label}</strong>?
+                </span>
+                <textarea
+                  className="input meal-active-textarea"
+                  rows={3}
+                  value={meals[focus] || ''}
+                  onChange={(e) => setMeals({ ...meals, [focus]: e.target.value })}
+                  placeholder={mealMeta[focus].placeholder}
+                />
               </label>
-            ))}
-          </div>
-          <div className="field" style={{ marginTop: 16 }}>
-            <span>Quick add to <em style={{ textTransform: 'capitalize', color: 'var(--green-700)' }}>{focus}</em></span>
-            <div className="choice-row choice-wrap">
-              {mealChips.map((c) => <button key={c} type="button" className="choice choice-sm" onClick={() => addChip(focus, c)}>{c}</button>)}
+            </div>
+
+            {/* Categorized Food Chips */}
+            <div className="categorized-chips-box">
+              <p className="chips-box-title">
+                Tap to quickly add to <strong>{mealMeta[focus].label}</strong>:
+              </p>
+              <div className="chips-categories">
+                {foodCategories.map((cat) => (
+                  <div key={cat.name} className="chip-category-group">
+                    <span className="category-group-name">{cat.name}</span>
+                    <div className="choice-row choice-wrap">
+                      {cat.chips.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          className="choice choice-sm chip-item"
+                          onClick={() => addChip(focus, c)}
+                        >
+                          <Icon name="plus" size={12} stroke={3} /> {c}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </Modal>

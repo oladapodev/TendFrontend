@@ -32,7 +32,7 @@ export default function Sos({ me, onClose }) {
   const nav = useNavigate()
   const total = me.settings.sosDelay
   const [left, setLeft] = useState(total)
-  const [phase, setPhase] = useState('countdown') // countdown | sending | live | error | ended
+  const [phase, setPhase] = useState('countdown') // countdown |  | live | error | ended
   const [incident, setIncident] = useState(null)
   const [targets, setTargets] = useState([])
   const [error, setError] = useState(null)
