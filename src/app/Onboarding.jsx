@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import Icon, { Logo } from '../components/Icon.jsx'
+import ThemeToggle from '../components/ThemeToggle.jsx'
 import { useUpdateMe } from './data.js'
 import { useLocation } from './location.jsx'
 
@@ -35,6 +36,7 @@ function OnbLayout({ step, total, children, side }) {
         <p className="onb-side-foot"><Icon name="lock" size={14} /> Your details stay on your profile. You choose what is shared during an SOS.</p>
       </aside>
       <section className="onb-main">
+        <ThemeToggle className="onb-theme" />
         {total ? (
           <div className="onb-progress" aria-label={`Step ${step + 1} of ${total}`}>
             {Array.from({ length: total }).map((_, i) => <span key={i} className={i <= step ? 'on' : ''} />)}

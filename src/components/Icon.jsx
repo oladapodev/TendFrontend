@@ -178,11 +178,93 @@ const paths = {
       <path d="M8 12h8" />
     </>
   ),
+  leaf: <path d="M11 20A7 7 0 0 1 4 13C4 7 11 3 20 3c0 9-4 16-11 16ZM4 20l7-7" />,
+  fish: <path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.46-3.44 6-7 6s-7.56-2.54-8.5-6ZM2 16l4.5-4L2 8v8ZM18 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" />,
+  bowl: <path d="M4 11h16a1 1 0 0 1 1 1c0 5-4 9-9 9s-9-4-9-9a1 1 0 0 1 1-1ZM7 8l2-4M12 8l1-4M17 8l-1-4" />,
+  utensils: (
+    <>
+      <path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2M15 11v11M5 2v4a3 3 0 0 0 3 3 3 3 0 0 0 3-3V2M8 9v13" />
+    </>
+  ),
   external: <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />,
   globe: (
     <>
       <circle cx="12" cy="12" r="9" />
       <path d="M3 12h18M12 3c2.5 2.5 3.5 6 3.5 9s-1 6.5-3.5 9c-2.5-2.5-3.5-6-3.5-9s1-6.5 3.5-9Z" />
+    </>
+  ),
+  camera: (
+    <>
+      <path d="M4 8a2 2 0 0 1 2-2h2.5l1.5-2h4l1.5 2H18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </>
+  ),
+  upload: <path d="M12 16V4M7 9l5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />,
+  download: <path d="M12 4v12M7 11l5 5 5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />,
+  eye: (
+    <>
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" />
+      <circle cx="12" cy="12" r="2.8" />
+    </>
+  ),
+  eyeOff: (
+    <>
+      <path d="M3 3l18 18M10.6 10.6a2.8 2.8 0 0 0 3.8 3.8M9.9 5.2A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.7 17.7 0 0 1-3.3 4.3M6.6 6.6C4 8.3 2 12 2 12s3.5 7 10 7c1.6 0 3-.4 4.3-1" />
+    </>
+  ),
+  key: (
+    <>
+      <circle cx="7.5" cy="15.5" r="4.5" />
+      <path d="m10.8 12.2 8.2-8.2M16 7l3 3M18.5 4.5l2 2" />
+    </>
+  ),
+  sliders: (
+    <>
+      <path d="M4 6h16M4 12h16M4 18h16" />
+      <circle cx="9" cy="6" r="2" fill="var(--surface, #fff)" />
+      <circle cx="15" cy="12" r="2" fill="var(--surface, #fff)" />
+      <circle cx="10" cy="18" r="2" fill="var(--surface, #fff)" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M20 11a8 8 0 0 0-14.5-4.5L3 9M3 4v5h5M4 13a8 8 0 0 0 14.5 4.5L21 15M21 20v-5h-5" />
+    </>
+  ),
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m4 7 8 6 8-6" />
+    </>
+  ),
+  laptop: (
+    <>
+      <rect x="4" y="5" width="16" height="11" rx="2" />
+      <path d="M2 19h20" />
+    </>
+  ),
+  checkCircle: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 12.2 2.4 2.4 4.6-4.8" />
+    </>
+  ),
+  volume: (
+    <>
+      <path d="M11 5 6 9H3v6h3l5 4V5Z" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" />
+    </>
+  ),
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+    </>
+  ),
+  monitor: (
+    <>
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M8 20h8M12 16v4" />
     </>
   ),
 }
@@ -228,7 +310,7 @@ export function Logo({ size = 32, light = false, compact = false }) {
         <path d="M14 20h3.2l1.6-3.4 2.6 6.6 1.6-3.2H26" fill="none" stroke={light ? '#fff' : '#008751'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       <span style={{ fontWeight: 800, fontSize: size * 0.62, letterSpacing: '-0.02em', color: light ? '#fff' : 'var(--ink-900)' }}>
-        Tend<span style={{ color: light ? 'var(--green-100)' : 'var(--green-600)' }}>AI</span>
+        Tend<span style={{ color: light ? '#d9f0e3' : 'var(--green-text)' }}>AI</span>
       </span>
     </span>
   )

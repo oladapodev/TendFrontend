@@ -70,19 +70,32 @@ export function createHttpApi(baseUrl) {
   }
 
   return {
+    mode: 'live',
     auth: {
       // mode: 'signup' (number must be new) or 'signin' (number must exist). Server replies 409 / 404 otherwise.
       requestOtp: (phone, mode = 'signin') => request('/auth/otp', { method: 'POST', body: { phone, mode } }),
       verifyOtp: async (phone, code) => {
-        const r = await request('/auth/verify', { method: 'POST', body: { phone, code } })
-        setToken(r.token)
-        return r
+        const res = await request('/auth/verify', { method: 'POST', body: { phone, code } })
+        if (res?.token) setToken(res.token)
+        return res
       },
+      loginWithPassword: async (phone, password) => {
+        const res = await request('/auth/login', { method: 'POST', body: { phone, password } })
+        if (res?.token) setToken(res.token)
+        return res
+      },
+      changePassword: (payload) => request('/auth/password/change', { method: 'POST', body: payload }),
+      requestPasswordReset: (phone) => request('/auth/password/reset/request', { method: 'POST', body: { phone } }),
+      resetPassword: (payload) => request('/auth/password/reset/confirm', { method: 'POST', body: payload }),
       logout: () => request('/auth/logout', { method: 'POST' }).catch(() => null),
     },
     me: {
       get: () => request('/me'),
       patch: (patch) => request('/me', { method: 'PATCH', body: patch }),
+      remove: () => request('/me', { method: 'DELETE' }).then((res) => {
+        clearToken()
+        return res
+      }),
     },
     contacts: {
       list: () => request('/contacts'),
@@ -97,10 +110,6 @@ export function createHttpApi(baseUrl) {
     },
     facilities: {
       near: ({ lat, lng, radiusKm = 15 }) => request(`/facilities?lat=${lat}&lng=${lng}&radius=${radiusKm}`),
-    },
-    drugs: {
-      search: (q, { limit = 20, signal } = {}) => request(`/greenbook/search?q=${encodeURIComponent(q)}&limit=${limit}`, { signal }),
-      verify: (reg) => request(`/greenbook/verify/${encodeURIComponent(reg.trim())}`),
     },
     incidents: {
       create: (payload) => request('/incidents', { method: 'POST', body: payload }),
@@ -130,6 +139,9 @@ export function createHttpApi(baseUrl) {
     medicines: {
       verify: (nafdacNo) => request(`/medicines/verify?nafdac=${encodeURIComponent(nafdacNo)}`),
     },
+    agent: {
+      chat: (messages, { lat, lng, ...handlers } = {}) => streamEvents('/agent/chat', { method: 'POST', body: { messages, lat, lng }, ...handlers }),
+    },
     voice: {
       config: () => request('/voice/config'),
       createSession: ({ lat, lng } = {}) => request('/voice/sessions', { method: 'POST', body: { lat, lng } }),
@@ -143,9 +155,6 @@ export function createHttpApi(baseUrl) {
       },
       confirmCall: (id) => request(`/voice/calls/${encodeURIComponent(id)}/confirm`, { method: 'POST', body: { confirmed: true } }),
       cancelCall: (id) => request(`/voice/calls/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-    },
-    agent: {
-      chat: (messages, { lat, lng, ...handlers } = {}) => streamEvents('/agent/chat', { method: 'POST', body: { messages, lat, lng }, ...handlers }),
     },
   }
 }

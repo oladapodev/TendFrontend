@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation as useRouterLocation, useNavigate } from 'react-router'
 import Landing from './landing/Landing.jsx'
 import { Spinner } from './components/QueryState.jsx'
+import ThemeProvider from './components/ThemeProvider.jsx'
 import { AuthProvider, useAuth } from './app/auth.jsx'
 
 // The app (map, query hooks, screens) loads only when someone opens it, keeping the landing page light.
@@ -37,18 +38,20 @@ function RequireAuth({ children }) {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ScrollToTop />
-      <LegacyHashRedirect />
-      <Suspense fallback={<div className="gate"><Spinner /></div>}>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/signin" element={<SignIn key="signin" mode="signin" />} />
-          <Route path="/signup" element={<SignIn key="signup" mode="signup" />} />
-          <Route path="/app/*" element={<RequireAuth><WebApp /></RequireAuth>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <ScrollToTop />
+        <LegacyHashRedirect />
+        <Suspense fallback={<div className="gate"><Spinner /></div>}>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/signin" element={<SignIn key="signin" mode="signin" />} />
+            <Route path="/signup" element={<SignIn key="signup" mode="signup" />} />
+            <Route path="/app/*" element={<RequireAuth><WebApp /></RequireAuth>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }

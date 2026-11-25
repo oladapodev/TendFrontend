@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import Icon, { Logo } from '../components/Icon.jsx'
+import ThemeToggle from '../components/ThemeToggle.jsx'
 import { useAuth } from '../app/auth.jsx'
 import './landing.css'
 
@@ -106,7 +107,10 @@ export default function Landing() {
             <a href="#features" onClick={(e) => { e.preventDefault(); document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' }) }}>Features</a>
             <a href="#roadmap" onClick={(e) => { e.preventDefault(); document.getElementById('roadmap')?.scrollIntoView({ behavior: 'smooth' }) }}>Roadmap</a>
           </nav>
-          <AuthButtons />
+          <div className="l-nav-actions">
+            <ThemeToggle />
+            <AuthButtons />
+          </div>
         </div>
       </header>
 

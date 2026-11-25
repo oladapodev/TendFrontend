@@ -150,3 +150,37 @@ export function useAnalyseDiet() {
     onSuccess: (result, meals) => qc.setQueryData(keys.me, (me) => (me ? { ...me, meals, dietResult: result } : me)),
   })
 }
+
+export function useChangePassword() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: api.auth.changePassword,
+    onSuccess: (res) => {
+      if (res?.security) qc.setQueryData(keys.me, (me) => (me ? { ...me, security: res.security } : me))
+    },
+  })
+}
+
+export function useRequestPasswordReset() {
+  return useMutation({
+    mutationFn: (phone) => api.auth.requestPasswordReset(phone),
+  })
+}
+
+export function useResetPassword() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: api.auth.resetPassword,
+    onSuccess: (res) => {
+      if (res?.security) qc.setQueryData(keys.me, (me) => (me ? { ...me, security: res.security } : me))
+    },
+  })
+}
+
+export function useDeleteAccount() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: api.me.remove,
+    onSuccess: () => qc.clear(),
+  })
+}

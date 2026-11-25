@@ -28,12 +28,33 @@ function sharedFields(share) {
   return Object.entries(share || {}).filter(([, v]) => v).map(([k]) => k)
 }
 
+function playBeep() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext
+    if (!AudioCtx) return
+    const ctx = new AudioCtx()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = 880
+    gain.gain.value = 0.06
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.09)
+    setTimeout(() => ctx.close().catch(() => {}), 200)
+  } catch {
+    /* ignore audio restrictions */
+  }
+}
+
 export default function Sos({ me, onClose }) {
   const loc = useLocation()
   const nav = useNavigate()
   const total = me.settings.sosDelay
+  const sosOpts = me.settings?.sosOptions || {}
   const [left, setLeft] = useState(total)
-  const [phase, setPhase] = useState('countdown') // countdown | sending | live | error | ended
+  const [phase, setPhase] = useState('countdown') // countdown |  | live | error | ended
   const [incident, setIncident] = useState(null)
   const [targets, setTargets] = useState([])
   const [error, setError] = useState(null)
@@ -54,6 +75,7 @@ export default function Sos({ me, onClose }) {
         lng: fix?.lng ?? null,
         accuracy: fix?.accuracy ?? null,
         shareFields: sharedFields(me.settings.share),
+        alertHelpers: sosOpts.alertHelpers !== false,
       })
       setIncident(inc)
       setTargets(inc.targets || [])
@@ -70,7 +92,7 @@ export default function Sos({ me, onClose }) {
       setError(e)
       setPhase('error')
     }
-  }, [loc, me.settings.share])
+  }, [loc, me.settings.share, sosOpts.alertHelpers])
 
   // countdown
   useEffect(() => {
@@ -82,9 +104,11 @@ export default function Sos({ me, onClose }) {
       }
       return
     }
+    if (sosOpts.soundAlert) playBeep()
+    if (sosOpts.vibrateAlert) navigator.vibrate?.(110)
     const t = setTimeout(() => setLeft((l) => l - 1), 1000)
     return () => clearTimeout(t)
-  }, [left, phase, send])
+  }, [left, phase, send, sosOpts.soundAlert, sosOpts.vibrateAlert])
 
   // timer while live
   useEffect(() => {

@@ -2,5 +2,14 @@ node_modules/
 dist/
 .env
 .env.local
+.DS_Store
 *.log
+
+# Capacitor native build output
+android/.gradle/
+android/app/build/
+android/build/
+ios/App/build/
+ios/App/DerivedData/
+ios/App/Pods/
 .vercel
