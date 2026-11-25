@@ -72,7 +72,6 @@ function Shell({ me }) {
       </aside>
 
       <div className="main">
-        {isDemo && <div className="demo-strip"><Icon name="info" size={14} /> Demo mode: no backend connected. Calls, texts and AI replies are simulated.</div>}
         <header className="topbar">
           <div className="topbar-left">
             <Link to="/" className="topbar-logo"><Logo size={28} /></Link>

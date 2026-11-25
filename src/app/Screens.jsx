@@ -11,10 +11,15 @@ import { bmi } from './Onboarding.jsx'
 
 export function Modal({ title, onClose, children, footer, wide }) {
   const ref = useRef(null)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
   useEffect(() => {
     const prev = document.activeElement
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') onCloseRef.current?.()
       if (e.key === 'Tab' && ref.current) {
         const f = ref.current.querySelectorAll('button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])')
         if (!f.length) return
@@ -29,13 +34,13 @@ export function Modal({ title, onClose, children, footer, wide }) {
       document.removeEventListener('keydown', onKey)
       prev?.focus?.()
     }
-  }, [onClose])
+  }, [])
   return (
-    <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onCloseRef.current?.()}>
       <div ref={ref} className={`modal ${wide ? 'modal-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <header className="modal-head">
           <h2>{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="x" size={20} /></button>
+          <button className="icon-btn" onClick={() => onCloseRef.current?.()} aria-label="Close"><Icon name="x" size={20} /></button>
         </header>
         <div className="modal-body">{children}</div>
         {footer && <footer className="modal-foot">{footer}</footer>}
