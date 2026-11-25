@@ -53,13 +53,13 @@ export default function SignIn({ mode = 'signin' }) {
   const request = useMutation({
     mutationFn: () => api.auth.requestOtp(toE164(phone), mode),
     onSuccess: (r) => {
-      setDemoCode(r?.demoCode || null)
+      setDemoCode(r?.devCode || r?.demoCode || null)
       setStep('code')
     },
   })
   const verify = useMutation({
     mutationFn: () => api.auth.verifyOtp(toE164(phone), code.trim()),
-    onSuccess: () => nav(loc.state?.from || '/app', { replace: true }),
+    onSuccess: () => nav('/app', { replace: true }),
   })
 
   if (signedIn) return <Navigate to="/app" replace />
