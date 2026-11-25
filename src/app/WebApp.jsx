@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link, NavLink, Navigate, Route, Routes, useLocation as useRouterLocation } from 'react-router'
 import Icon, { Logo } from '../components/Icon.jsx'
 import QueryState from '../components/QueryState.jsx'
-import { isDemo } from '../api/index.js'
 import { useMe } from './data.js'
 import { useAuth } from './auth.jsx'
 import { LocationProvider, useLocation } from './location.jsx'
@@ -42,6 +41,8 @@ function Shell({ me }) {
   const seg = pathname.replace(/^\/app\/?/, '').split('/')[0]
   const current = sections.find((s) => s.path === seg) || byId.home
   const first = me.profile.name.split(' ')[0] || 'there'
+  const hr = new Date().getHours()
+  const greeting = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening'
   const startSos = () => setSosOpen(true)
 
   return (
@@ -76,8 +77,8 @@ function Shell({ me }) {
           <div className="topbar-left">
             <Link to="/" className="topbar-logo"><Logo size={28} /></Link>
             <div className="topbar-title">
-              <h1>{current.id === 'home' ? `Hello, ${first}` : current.label}</h1>
-              {current.id === 'home' && <p>Help is one press away.</p>}
+              <h1>{current.id === 'home' ? `${greeting}, ${first}` : current.label}</h1>
+              {current.id === 'home' && <p>Your 24/7 safety net &amp; health companion.</p>}
             </div>
           </div>
           <div className="topbar-right">
