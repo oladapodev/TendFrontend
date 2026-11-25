@@ -1,9 +1,40 @@
-import { useRoute } from './router.js'
+import { lazy, Suspense, useEffect } from 'react'
+import { Navigate, Route, Routes, useLocation as useRouterLocation } from 'react-router'
 import Landing from './landing/Landing.jsx'
-import WebApp from './app/WebApp.jsx'
+import { Spinner } from './components/QueryState.jsx'
+import { AuthProvider, useAuth } from './app/auth.jsx'
+
+// The app (map, query hooks, screens) loads only when someone opens it, keeping the landing page light.
+const SignIn = lazy(() => import('./app/SignIn.jsx'))
+const WebApp = lazy(() => import('./app/WebApp.jsx'))
+
+function ScrollToTop() {
+  const { pathname } = useRouterLocation()
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+  return null
+}
+
+function RequireAuth({ children }) {
+  const { signedIn } = useAuth()
+  const loc = useRouterLocation()
+  if (!signedIn) return <Navigate to="/signin" replace state={{ from: loc.pathname }} />
+  return children
+}
 
 export default function App() {
-  const route = useRoute()
-  if (route.startsWith('/app')) return <WebApp route={route} />
-  return <Landing />
+  return (
+    <AuthProvider>
+      <ScrollToTop />
+      <Suspense fallback={<div className="gate"><Spinner /></div>}>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/signin" element={<SignIn />} />
+          <Route path="/app/*" element={<RequireAuth><WebApp /></RequireAuth>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    </AuthProvider>
+  )
 }

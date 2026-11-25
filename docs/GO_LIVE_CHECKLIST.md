@@ -41,7 +41,7 @@ Read with [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 - [ ] Loading, empty and error states for every screen.
 - [ ] Remove "Demo" tags only where the feature is truly live; keep them on anything simulated.
 
-### P1 Victor
+### P1 
 - [ ] Final post-countdown wording agreed ("Help is on the way" vs status-only, see slide 06).
 - [ ] CPR guide: team's images, a 100–120 bpm metronome on "Start compression timer", clinician sign-off.
 - [ ] PWA with `vite-plugin-pwa`: install prompt, offline shell, cached Medical ID and Call 112 so they open with no network.

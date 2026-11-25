@@ -1,19 +1,28 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import Icon, { Logo } from '../components/Icon.jsx'
-import { useStore, bmi } from './store.jsx'
+import { useUpdateMe } from './data.js'
+import { useLocation } from './location.jsx'
+
+export const bmi = (p) => {
+  const h = Number(p.heightCm) / 100
+  const w = Number(p.weightKg)
+  if (!h || !w) return null
+  return (w / (h * h)).toFixed(1)
+}
 
 const steps = [
-  { key: 'name', title: "What's your name?", hint: 'This is how TendAI and your emergency contacts will know you.' },
-  { key: 'age', title: 'How old are you?', hint: 'Age helps responders and the hospital prepare.' },
-  { key: 'body', title: 'Your height and weight', hint: 'Used for Fit Health and to share with responders if you allow it.' },
-  { key: 'sex', title: 'Sex (optional)', hint: 'Some care decisions depend on it. You can skip this.' },
+  { key: 'name', label: 'Your name', title: "What's your name?", hint: 'This is how TendAI and your emergency contacts will know you.' },
+  { key: 'age', label: 'Age', title: 'How old are you?', hint: 'Age helps responders and the hospital prepare.' },
+  { key: 'body', label: 'Height & weight', title: 'Your height and weight', hint: 'Used for Fit Health and to share with responders if you allow it.' },
+  { key: 'sex', label: 'Sex', title: 'Sex (optional)', hint: 'Some care decisions depend on it. You can skip this.' },
 ]
 
 function OnbLayout({ step, total, children, side }) {
   return (
     <div className="onb">
       <aside className="onb-side">
-        <a href="#/"><Logo size={32} light /></a>
+        <Link to="/"><Logo size={32} light /></Link>
         <div className="onb-side-body">{side}</div>
         <p className="onb-side-foot"><Icon name="lock" size={14} /> Your details stay on your profile. You choose what is shared during an SOS.</p>
       </aside>
@@ -29,16 +38,20 @@ function OnbLayout({ step, total, children, side }) {
   )
 }
 
-export function Onboarding() {
-  const { state, update } = useStore()
+export function Onboarding({ me }) {
+  const save = useUpdateMe()
   const [i, setI] = useState(0)
-  const [p, setP] = useState(state.profile)
+  const [p, setP] = useState(me.profile)
   const s = steps[i]
   const set = (k) => (e) => setP({ ...p, [k]: e.target.value })
-  const valid = s.key === 'name' ? p.name.trim().length > 1 : true
+  const age = Number(p.age)
+  const valid =
+    s.key === 'name' ? p.name.trim().length > 1 :
+    s.key === 'age' ? p.age === '' || (age > 0 && age < 120) :
+    true
   const next = () => {
     if (i < steps.length - 1) setI(i + 1)
-    else update({ profile: p, onboarded: true })
+    else save.mutate({ profile: { ...p, name: p.name.trim() }, onboarded: true })
   }
   const b = bmi(p)
 
@@ -54,7 +67,7 @@ export function Onboarding() {
             {steps.map((st, n) => (
               <li key={st.key} className={n < i ? 'done' : n === i ? 'now' : ''}>
                 <span>{n < i ? <Icon name="check" size={14} stroke={3} /> : n + 1}</span>
-                {['Your name', 'Age', 'Height & weight', 'Sex'][n]}
+                {st.label}
               </li>
             ))}
           </ol>
@@ -75,13 +88,13 @@ export function Onboarding() {
         {s.key === 'name' && (
           <label className="field">
             <span>Full name</span>
-            <input className="input input-lg" autoFocus placeholder="e.g. Victor Adeyemi" value={p.name} onChange={set('name')} />
+            <input className="input input-lg" autoFocus autoComplete="name" placeholder="e.g. Victor Adeyemi" value={p.name} onChange={set('name')} />
           </label>
         )}
         {s.key === 'age' && (
           <label className="field">
             <span>Age in years</span>
-            <input className="input input-lg" autoFocus type="number" min="0" max="120" placeholder="e.g. 28" value={p.age} onChange={set('age')} />
+            <input className="input input-lg" autoFocus type="number" min="1" max="119" placeholder="e.g. 28" value={p.age} onChange={set('age')} />
           </label>
         )}
         {s.key === 'body' && (
@@ -89,18 +102,18 @@ export function Onboarding() {
             <div className="grid-2">
               <label className="field">
                 <span>Height (cm)</span>
-                <input className="input input-lg" autoFocus type="number" placeholder="e.g. 172" value={p.heightCm} onChange={set('heightCm')} />
+                <input className="input input-lg" autoFocus type="number" min="50" max="250" placeholder="e.g. 172" value={p.heightCm} onChange={set('heightCm')} />
               </label>
               <label className="field">
                 <span>Weight (kg)</span>
-                <input className="input input-lg" type="number" placeholder="e.g. 70" value={p.weightKg} onChange={set('weightKg')} />
+                <input className="input input-lg" type="number" min="2" max="400" placeholder="e.g. 70" value={p.weightKg} onChange={set('weightKg')} />
               </label>
             </div>
             {b && <p className="onb-bmi"><Icon name="scale" size={16} /> BMI <strong>{b}</strong> · shown in Fit Health</p>}
           </>
         )}
         {s.key === 'sex' && (
-          <div className="choice-row">
+          <div className="choice-row choice-wrap">
             {['Female', 'Male', 'Prefer not to say'].map((o) => (
               <button type="button" key={o} className={`choice ${p.sex === o ? 'on' : ''}`} onClick={() => setP({ ...p, sex: o })}>
                 {o}
@@ -109,14 +122,16 @@ export function Onboarding() {
           </div>
         )}
 
+        {save.isError && <p className="form-error"><Icon name="alert" size={16} /> {save.error.message}</p>}
+
         <div className="onb-actions">
           {i > 0 ? (
             <button type="button" className="btn btn-ghost" onClick={() => setI(i - 1)}><Icon name="chevronLeft" size={18} /> Back</button>
           ) : <span />}
           <div className="onb-actions-right">
             {s.key !== 'name' && <button type="button" className="link-btn" onClick={next}>Skip</button>}
-            <button className="btn btn-primary" disabled={!valid}>
-              {i === steps.length - 1 ? 'Finish' : 'Continue'} <Icon name="arrowRight" size={18} />
+            <button className="btn btn-primary" disabled={!valid || save.isPending}>
+              {i === steps.length - 1 ? (save.isPending ? 'Saving…' : 'Finish') : 'Continue'} <Icon name="arrowRight" size={18} />
             </button>
           </div>
         </div>
@@ -128,33 +143,26 @@ export function Onboarding() {
 const perms = [
   { key: 'location', icon: 'pin', title: 'Location', required: true, why: 'Needed for SOS. We share it with the hospital and your contacts only when you press SOS, and use it to find care near you.' },
   { key: 'notifications', icon: 'bell', title: 'Notifications', why: 'So we can show live incident updates and remind you about your care plan.' },
-  { key: 'contacts', icon: 'users', title: 'Contacts', why: 'Optional. Lets you pick emergency contacts from your phone book instead of typing them.' },
 ]
 
 export function Permissions() {
-  const { state, update } = useStore()
-  const [busy, setBusy] = useState(null)
-  const setPerm = (k, v) => update((s) => ({ permissions: { ...s.permissions, [k]: v } }))
+  const save = useUpdateMe()
+  const loc = useLocation()
+  const [notif, setNotif] = useState(() => ('Notification' in window ? (Notification.permission === 'default' ? 'pending' : Notification.permission === 'granted' ? 'granted' : 'denied') : 'denied'))
+  const [locAsked, setLocAsked] = useState(false)
+
+  const locState = loc.status === 'live' ? 'granted' : loc.status === 'denied' || loc.status === 'unavailable' ? 'denied' : locAsked ? 'asking' : 'pending'
+  const state = { location: locState, notifications: notif }
 
   const allow = (k) => {
-    if (k === 'location' && 'geolocation' in navigator) {
-      setBusy(k)
-      navigator.geolocation.getCurrentPosition(
-        () => { setPerm(k, 'granted'); setBusy(null) },
-        () => { setPerm(k, 'denied'); setBusy(null) },
-        { timeout: 8000 },
-      )
-      return
-    }
-    if (k === 'notifications' && 'Notification' in window) {
-      setBusy(k)
+    if (k === 'location') {
+      setLocAsked(true)
+      loc.start()
+    } else if ('Notification' in window) {
       Promise.resolve(Notification.requestPermission())
-        .then((r) => setPerm(k, r === 'granted' ? 'granted' : 'denied'))
-        .catch(() => setPerm(k, 'denied'))
-        .finally(() => setBusy(null))
-      return
+        .then((r) => setNotif(r === 'granted' ? 'granted' : 'denied'))
+        .catch(() => setNotif('denied'))
     }
-    setPerm(k, 'granted')
   }
 
   return (
@@ -162,7 +170,7 @@ export function Permissions() {
       side={
         <>
           <h2>Permissions, explained first.</h2>
-          <p>We ask for each permission only when we have told you why. You can change these any time in Settings.</p>
+          <p>We ask for each permission only after telling you why. You can change these in your browser settings at any time.</p>
           <div className="onb-shield"><Icon name="shield" size={40} stroke={1.6} /></div>
         </>
       }
@@ -173,7 +181,7 @@ export function Permissions() {
 
       <div className="perm-list">
         {perms.map((p) => {
-          const st = state.permissions[p.key]
+          const st = state[p.key]
           return (
             <div className={`perm ${st}`} key={p.key}>
               <span className="perm-ico"><Icon name={p.icon} size={22} /></span>
@@ -186,29 +194,24 @@ export function Permissions() {
               </div>
               <div className="perm-act">
                 {st === 'granted' && <span className="chip chip-green"><Icon name="check" size={14} stroke={3} /> Allowed</span>}
-                {st === 'denied' && <span className="chip chip-grey">Not now</span>}
-                {st === 'pending' && (
-                  <>
-                    <button className="btn btn-primary btn-sm" onClick={() => allow(p.key)} disabled={busy === p.key}>
-                      {busy === p.key ? 'Asking…' : 'Allow'}
-                    </button>
-                    <button className="link-btn" onClick={() => setPerm(p.key, 'denied')}>Not now</button>
-                  </>
-                )}
+                {st === 'denied' && <span className="chip chip-grey">Blocked</span>}
+                {st === 'asking' && <span className="chip chip-amber">Waiting for browser…</span>}
+                {st === 'pending' && <button className="btn btn-primary btn-sm" onClick={() => allow(p.key)}>Allow</button>}
               </div>
             </div>
           )
         })}
       </div>
 
-      {state.permissions.location === 'denied' && (
-        <p className="perm-warn"><Icon name="alert" size={16} /> Without location, SOS will ask again when you press it, and you can still call 112 directly.</p>
+      {locState === 'denied' && (
+        <p className="perm-warn"><Icon name="alert" size={16} /> Location is blocked. SOS will still work without it, but the hospital won't know where you are. You can turn it on in your browser's site settings, and you can always call 112 directly.</p>
       )}
+      {save.isError && <p className="form-error"><Icon name="alert" size={16} /> {save.error.message}</p>}
 
       <div className="onb-actions">
         <span />
-        <button className="btn btn-primary" onClick={() => update({ permissionsDone: true })}>
-          Go to my dashboard <Icon name="arrowRight" size={18} />
+        <button className="btn btn-primary" disabled={save.isPending} onClick={() => save.mutate({ permissionsDone: true })}>
+          {save.isPending ? 'Saving…' : 'Go to my dashboard'} <Icon name="arrowRight" size={18} />
         </button>
       </div>
     </OnbLayout>

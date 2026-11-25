@@ -1,7 +1,11 @@
 import { useState } from 'react'
+import { Link, NavLink, Navigate, Route, Routes, useLocation as useRouterLocation } from 'react-router'
 import Icon, { Logo } from '../components/Icon.jsx'
-import { go } from '../router.js'
-import { StoreProvider, useStore } from './store.jsx'
+import QueryState from '../components/QueryState.jsx'
+import { isDemo } from '../api/index.js'
+import { useMe } from './data.js'
+import { useAuth } from './auth.jsx'
+import { LocationProvider, useLocation } from './location.jsx'
 import { Onboarding, Permissions } from './Onboarding.jsx'
 import { Home, Circle, Medical, Diet, Fit, Cpr, Settings } from './Screens.jsx'
 import Locator from './Locator.jsx'
@@ -10,63 +14,74 @@ import Sos from './Sos.jsx'
 import './app.css'
 
 export const sections = [
-  { id: 'home', path: '/app', label: 'Home', icon: 'home' },
-  { id: 'circle', path: '/app/circle', label: 'Emergency contacts', short: 'Contacts', icon: 'users', tone: 'green' },
-  { id: 'medical', path: '/app/medical', label: 'Medical ID', short: 'Medical ID', icon: 'drop', tone: 'red' },
-  { id: 'locator', path: '/app/locator', label: 'Help Locator', short: 'Locator', icon: 'map', tone: 'blue' },
-  { id: 'diet', path: '/app/diet', label: 'Diet', short: 'Diet', icon: 'apple', tone: 'amber' },
-  { id: 'fit', path: '/app/fit', label: 'Fit Health', short: 'Fit', icon: 'activity', tone: 'purple' },
-  { id: 'cpr', path: '/app/cpr', label: 'CPR guide', short: 'CPR', icon: 'cpr', tone: 'red' },
-  { id: 'agent', path: '/app/agent', label: 'TendTalk agent', short: 'TendTalk', icon: 'chat' },
-  { id: 'settings', path: '/app/settings', label: 'Settings', icon: 'settings' },
+  { id: 'home', path: '', label: 'Home', short: 'Home', icon: 'home' },
+  { id: 'circle', path: 'circle', label: 'Emergency contacts', short: 'Contacts', icon: 'users', tone: 'green' },
+  { id: 'medical', path: 'medical', label: 'Medical ID', short: 'Medical ID', icon: 'drop', tone: 'red' },
+  { id: 'locator', path: 'locator', label: 'Help Locator', short: 'Locator', icon: 'map', tone: 'blue' },
+  { id: 'diet', path: 'diet', label: 'Diet', short: 'Diet', icon: 'apple', tone: 'amber' },
+  { id: 'fit', path: 'fit', label: 'Fit Health', short: 'Fit', icon: 'activity', tone: 'purple' },
+  { id: 'cpr', path: 'cpr', label: 'CPR guide', short: 'CPR', icon: 'cpr', tone: 'red' },
+  { id: 'agent', path: 'agent', label: 'TendTalk agent', short: 'TendTalk', icon: 'chat' },
+  { id: 'settings', path: 'settings', label: 'Settings', icon: 'settings' },
 ]
+const byId = Object.fromEntries(sections.map((s) => [s.id, s]))
+const to = (s) => `/app${s.path ? `/${s.path}` : ''}`
 
-function Shell({ route }) {
-  const { state } = useStore()
+function LocationChip() {
+  const { status, pos } = useLocation()
+  if (status === 'live') return <span className="chip chip-green loc-chip"><Icon name="pin" size={14} /> Location on · ±{pos.accuracy} m</span>
+  if (status === 'locating') return <span className="chip chip-amber loc-chip"><Icon name="pin" size={14} /> Finding you…</span>
+  return <Link to="/app/settings" className="chip chip-grey loc-chip"><Icon name="pin" size={14} /> Location off</Link>
+}
+
+function Shell({ me }) {
+  const { signOut } = useAuth()
   const [sosOpen, setSosOpen] = useState(false)
-  const current = sections.find((s) => s.path === route) || sections[0]
-  const screens = { home: Home, circle: Circle, medical: Medical, locator: Locator, diet: Diet, fit: Fit, cpr: Cpr, agent: Agent, settings: Settings }
-  const Screen = screens[current.id]
+  const { pathname } = useRouterLocation()
+  const seg = pathname.replace(/^\/app\/?/, '').split('/')[0]
+  const current = sections.find((s) => s.path === seg) || byId.home
+  const first = me.profile.name.split(' ')[0] || 'there'
   const startSos = () => setSosOpen(true)
-  const first = state.profile.name.split(' ')[0] || 'there'
 
   return (
     <div className="shell">
       <aside className="rail">
-        <a href="#/" className="rail-logo"><Logo size={30} /></a>
+        <Link to="/" className="rail-logo"><Logo size={30} /></Link>
         <nav className="rail-nav">
           {sections.filter((s) => s.id !== 'settings').map((s) => (
-            <a key={s.id} href={`#${s.path}`} className={`rail-item ${s.id === current.id ? 'is-active' : ''} ${s.id === 'agent' ? 'is-agent' : ''}`}>
+            <NavLink key={s.id} to={to(s)} end={s.id === 'home'} className={({ isActive }) => `rail-item ${isActive ? 'is-active' : ''} ${s.id === 'agent' ? 'is-agent' : ''}`}>
               <Icon name={s.icon} size={20} />
               <span>{s.label}</span>
-            </a>
+            </NavLink>
           ))}
         </nav>
         <div className="rail-foot">
-          <a href="#/app/settings" className={`rail-item ${current.id === 'settings' ? 'is-active' : ''}`}>
+          <NavLink to="/app/settings" className={({ isActive }) => `rail-item ${isActive ? 'is-active' : ''}`}>
             <Icon name="settings" size={20} /><span>Settings</span>
-          </a>
+          </NavLink>
           <div className="rail-user">
             <span className="avatar">{first[0]?.toUpperCase()}</span>
             <div>
-              <strong>{state.profile.name || 'Guest'}</strong>
-              <small>Blood group {state.medical.bloodGroup || '–'}</small>
+              <strong>{me.profile.name || 'You'}</strong>
+              <small>{me.phone}</small>
             </div>
+            <button className="icon-btn" onClick={signOut} aria-label="Sign out" title="Sign out"><Icon name="logout" size={18} /></button>
           </div>
         </div>
       </aside>
 
       <div className="main">
+        {isDemo && <div className="demo-strip"><Icon name="info" size={14} /> Demo mode: no backend connected. Calls, texts and AI replies are simulated.</div>}
         <header className="topbar">
           <div className="topbar-left">
-            <a href="#/" className="topbar-logo"><Logo size={28} /></a>
+            <Link to="/" className="topbar-logo"><Logo size={28} /></Link>
             <div className="topbar-title">
               <h1>{current.id === 'home' ? `Hello, ${first}` : current.label}</h1>
-              {current.id === 'home' && <p>You're set up. Help is one press away.</p>}
+              {current.id === 'home' && <p>Help is one press away.</p>}
             </div>
           </div>
           <div className="topbar-right">
-            <span className="chip chip-green loc-chip"><Icon name="pin" size={14} /> Abeokuta, Ogun</span>
+            <LocationChip />
             <button className="sos-pill" onClick={startSos} aria-label="Start emergency SOS">
               <span className="sos-pill-dot" /> SOS
             </button>
@@ -74,37 +89,54 @@ function Shell({ route }) {
         </header>
 
         <main className="content">
-          <Screen onSos={startSos} />
+          <Routes>
+            <Route index element={<Home me={me} onSos={startSos} />} />
+            <Route path="circle" element={<Circle />} />
+            <Route path="medical" element={<Medical me={me} />} />
+            <Route path="locator" element={<Locator />} />
+            <Route path="diet" element={<Diet me={me} />} />
+            <Route path="fit" element={<Fit me={me} />} />
+            <Route path="cpr" element={<Cpr />} />
+            <Route path="agent" element={<Agent me={me} />} />
+            <Route path="settings" element={<Settings me={me} />} />
+            <Route path="*" element={<Navigate to="/app" replace />} />
+          </Routes>
         </main>
       </div>
 
       <nav className="bottombar" aria-label="Main">
-        {[sections[0], sections[3], sections[7], sections[2], sections[1]].map((s) => (
-          <a key={s.id} href={`#${s.path}`} className={`bb-item ${s.id === current.id ? 'is-active' : ''} ${s.id === 'agent' ? 'bb-agent' : ''}`}>
+        {[byId.home, byId.locator, byId.agent, byId.medical, byId.circle].map((s) => (
+          <NavLink key={s.id} to={to(s)} end={s.id === 'home'} className={({ isActive }) => `bb-item ${isActive ? 'is-active' : ''} ${s.id === 'agent' ? 'bb-agent' : ''}`}>
             <span className="bb-ico"><Icon name={s.icon} size={s.id === 'agent' ? 26 : 22} /></span>
-            <span>{s.id === 'home' ? 'Home' : s.short}</span>
-          </a>
+            <span>{s.short}</span>
+          </NavLink>
         ))}
       </nav>
 
-      {sosOpen && <Sos onClose={() => setSosOpen(false)} />}
+      {sosOpen && <Sos me={me} onClose={() => setSosOpen(false)} />}
     </div>
   )
 }
 
-function Gate({ route }) {
-  const { state } = useStore()
-  if (!state.onboarded) return <Onboarding />
-  if (!state.permissionsDone) return <Permissions />
-  return <Shell route={route} />
-}
-
-export default function WebApp({ route }) {
+function Gate() {
+  const me = useMe()
   return (
-    <StoreProvider>
-      <Gate route={route} />
-    </StoreProvider>
+    <div className="gate">
+      <QueryState query={me} loadingLabel="Loading your profile…" errorTitle="Couldn't load your profile">
+        {(data) => {
+          if (!data.onboarded) return <Onboarding me={data} />
+          if (!data.permissionsDone) return <Permissions />
+          return <Shell me={data} />
+        }}
+      </QueryState>
+    </div>
   )
 }
 
-export { go }
+export default function WebApp() {
+  return (
+    <LocationProvider>
+      <Gate />
+    </LocationProvider>
+  )
+}
