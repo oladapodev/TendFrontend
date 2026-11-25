@@ -1,27 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Circle as LCircle, useMap } from 'react-leaflet'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps'
 import Icon from '../components/Icon.jsx'
 import { Spinner, ErrorBox } from '../components/QueryState.jsx'
 import { useFacilities, usePlaces, useAddPlace, useSaveContact } from './data.js'
 import { useLocation } from './location.jsx'
 import { Modal } from './Screens.jsx'
 
-const pinIcon = (f, selected) =>
-  L.divIcon({
-    className: '',
-    html: `<div class="lf-pin ${f.emergency ? 'is-er' : ''} ${f.custom ? 'is-mine' : ''} ${selected ? 'is-sel' : ''}"><span></span><b>${(f.short || f.name).replace(/</g, '&lt;')}</b></div>`,
-    iconSize: [0, 0],
-    iconAnchor: [0, 0],
-  })
-const meIcon = L.divIcon({ className: '', html: '<div class="lf-me"></div>', iconSize: [22, 22], iconAnchor: [11, 11] })
+const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY
+const MAP_ID = import.meta.env.VITE_GOOGLE_MAP_ID || 'DEMO_MAP_ID'
+
+const Pin = ({ f, selected }) => (
+  <div className={`lf-pin ${f.emergency ? 'is-er' : ''} ${f.custom ? 'is-mine' : ''} ${selected ? 'is-sel' : ''}`}><span></span><b>{f.short || f.name}</b></div>
+)
 
 function FlyTo({ target, zoom }) {
   const map = useMap()
   useEffect(() => {
-    if (target) map.flyTo([target.lat, target.lng], zoom ?? map.getZoom(), { duration: 0.6 })
-  }, [target?.lat, target?.lng])
+    if (map && target) {
+      map.panTo({ lat: target.lat, lng: target.lng })
+      if (zoom) map.setZoom(zoom)
+    }
+  }, [map, target?.lat, target?.lng])
   return null
 }
 
@@ -29,15 +28,28 @@ function FitOnce({ points }) {
   const map = useMap()
   const [done, setDone] = useState(false)
   useEffect(() => {
-    if (done || points.length < 2) return
-    map.fitBounds(L.latLngBounds(points.map((p) => [p.lat, p.lng])), { padding: [48, 48], maxZoom: 15 })
+    if (!map || done || points.length < 2 || !window.google) return
+    const b = new window.google.maps.LatLngBounds()
+    points.forEach((p) => b.extend({ lat: p.lat, lng: p.lng }))
+    map.fitBounds(b, 48)
+    if (map.getZoom() > 15) map.setZoom(15)
     setDone(true)
   }, [points, done, map])
   return null
 }
 
+function AccuracyCircle({ pos }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!map || !pos || !window.google) return
+    const c = new window.google.maps.Circle({ map, center: { lat: pos.lat, lng: pos.lng }, radius: pos.accuracy || 50, strokeColor: '#2563a8', strokeWeight: 1, fillColor: '#2563a8', fillOpacity: 0.08, clickable: false })
+    return () => c.setMap(null)
+  }, [map, pos?.lat, pos?.lng, pos?.accuracy])
+  return null
+}
+
 const directionsUrl = (f, from) =>
-  `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${from ? `${from.lat}%2C${from.lng}` : ''}%3B${f.lat}%2C${f.lng}`
+  `https://www.google.com/maps/dir/?api=1${from ? `&origin=${from.lat},${from.lng}` : ''}&destination=${f.lat},${f.lng}&travelmode=driving`
 
 export default function Locator() {
   const loc = useLocation()
@@ -118,20 +130,23 @@ export default function Locator() {
       </div>
 
       <div className="loc-map-wrap">
-        <MapContainer center={[loc.center.lat, loc.center.lng]} zoom={14} className="lf-map" scrollWheelZoom zoomControl>
-          <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, facilities &copy; GRID3 (CC BY 4.0)' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19} />
-          {loc.pos && (
-            <>
-              <LCircle center={[loc.pos.lat, loc.pos.lng]} radius={loc.pos.accuracy} pathOptions={{ color: '#2563a8', weight: 1, fillOpacity: 0.08 }} />
-              <Marker position={[loc.pos.lat, loc.pos.lng]} icon={meIcon} title="You are here" />
-            </>
-          )}
-          {onMap.map((f) => (
-            <Marker key={f.id} position={[f.lat, f.lng]} icon={pinIcon(f, sel?.id === f.id)} eventHandlers={{ click: () => setSel(f) }} title={f.name} />
-          ))}
-          <FitOnce points={[...(loc.pos ? [loc.pos] : []), ...onMap.slice(0, 5)]} />
-          <FlyTo target={sel?.lat != null ? sel : null} />
-        </MapContainer>
+        <APIProvider apiKey={MAPS_KEY || ''}>
+          <Map className="lf-map" mapId={MAP_ID} defaultCenter={{ lat: loc.center.lat, lng: loc.center.lng }} defaultZoom={14} gestureHandling="greedy" disableDefaultUI={false} streetViewControl={false} mapTypeControl={false} fullscreenControl={false} clickableIcons={false}>
+            {loc.pos && (
+              <>
+                <AccuracyCircle pos={loc.pos} />
+                <AdvancedMarker position={{ lat: loc.pos.lat, lng: loc.pos.lng }} title="You are here"><div className="lf-me" /></AdvancedMarker>
+              </>
+            )}
+            {onMap.map((f) => (
+              <AdvancedMarker key={f.id} position={{ lat: f.lat, lng: f.lng }} onClick={() => setSel(f)} title={f.name} zIndex={sel?.id === f.id ? 1000 : undefined}>
+                <Pin f={f} selected={sel?.id === f.id} />
+              </AdvancedMarker>
+            ))}
+            <FitOnce points={[...(loc.pos ? [loc.pos] : []), ...onMap.slice(0, 5)]} />
+            <FlyTo target={sel?.lat != null ? sel : null} />
+          </Map>
+        </APIProvider>
 
         <div className="map-legend">
           <span><i className="lg-er" /> 24h emergency</span>
