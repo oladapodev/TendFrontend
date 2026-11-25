@@ -7,7 +7,9 @@ import childCall from '../assets/cpr/cpr_child_step_04.png'
 import babyBreaths from '../assets/cpr/cpr_baby_step_03.png'
 import babyPush from '../assets/cpr/cpr_baby_step_05.png'
 
-// Hands-only and standard CPR steps. Wording and illustrations must be reviewed by a clinician before launch.
+// CPR guide built only from the uploaded illustrations: every step has its picture.
+// Checks and calls that have no picture of their own are folded into the illustrated steps.
+// Wording and illustrations must be reviewed by a clinician before launch.
 const GUIDES = {
   adult: {
     label: 'Adult',
@@ -15,11 +17,9 @@ const GUIDES = {
     depth: '5–6 cm',
     hands: 'Heel of one hand in the centre of the chest, other hand on top, arms straight.',
     steps: [
-      { icon: 'alert', title: 'Check it is safe and check for a response', text: 'Make sure there is no danger to you. Tap their shoulders and shout. Look for normal breathing for no more than 10 seconds.' },
-      { img: adultCall, alt: 'Rescuer kneeling beside an unresponsive man, phone on speaker and a defibrillator open nearby', title: 'Call 112 and get a defibrillator (AED)', text: 'Put the phone on speaker so your hands are free. Send someone to find an AED if one is nearby.' },
+      { img: adultCall, alt: 'Rescuer kneeling beside an unresponsive man, phone on speaker and a defibrillator open nearby', title: 'Check, then call 112 and get an AED', text: 'Make sure it is safe. Tap their shoulders and shout. If they do not respond and are not breathing normally, call 112 with the phone on speaker and send someone for a defibrillator (AED) if one is nearby.' },
       { img: adultPush, alt: 'Rescuer pushing on the centre of the chest with arms straight', title: 'Give 30 chest compressions', text: 'Push hard and fast in the centre of the chest, 5–6 cm deep, 100–120 times a minute. Let the chest come back up after each push.' },
-      { img: adultBreaths, alt: 'Rescuer tilting the head, pinching the nose and giving a breath', title: 'Give 2 rescue breaths (if trained)', text: 'Tilt the head back, lift the chin, pinch the nose and breathe in for about 1 second until the chest rises. If you are not trained or not willing, keep doing compressions only.' },
-      { icon: 'activity', title: 'Keep going: 30 compressions, 2 breaths', text: 'Do not stop until help takes over, the person starts breathing normally, or you are too exhausted. Use the AED as soon as it arrives and follow its voice prompts.' },
+      { img: adultBreaths, alt: 'Rescuer tilting the head, pinching the nose and giving a breath', title: 'Give 2 rescue breaths, then repeat', text: 'Tilt the head back, lift the chin, pinch the nose and breathe for about 1 second until the chest rises. Then go back to 30 compressions and 2 breaths, and keep going until help takes over or they breathe normally. Not trained or not willing? Keep doing compressions only. Use the AED as soon as it arrives.' },
     ],
   },
   child: {
@@ -28,11 +28,7 @@ const GUIDES = {
     depth: 'about 5 cm (a third of the chest)',
     hands: 'One hand (or two for a bigger child) on the lower half of the breastbone.',
     steps: [
-      { icon: 'alert', title: 'Check it is safe and check for a response', text: 'Tap them and call their name. Look for normal breathing for no more than 10 seconds.' },
-      { img: childCall, alt: 'Rescuer kneeling beside an unresponsive child, phone on speaker beside them', title: 'Call 112 on speaker', text: 'Stay with the child and keep your hands free. If you are alone with no phone, do about 1 minute of CPR before going for help.' },
-      { icon: 'heart', title: 'Give 30 chest compressions', text: 'Push on the lower half of the breastbone, about 5 cm deep (a third of the chest), 100–120 times a minute.' },
-      { icon: 'chat', title: 'Give 2 rescue breaths', text: 'Tilt the head back gently, lift the chin, pinch the nose and breathe until the chest rises.' },
-      { icon: 'activity', title: 'Keep going: 30 compressions, 2 breaths', text: 'Continue until help takes over or the child starts breathing normally.' },
+      { img: childCall, alt: 'Rescuer kneeling beside an unresponsive child, phone on speaker beside them', title: 'Check, call 112, then start CPR', text: 'Tap the child and call their name. If they do not respond and are not breathing normally, call 112 with the phone on speaker beside you. Then give 30 compressions on the lower half of the breastbone, about 5 cm deep, 100–120 a minute, followed by 2 breaths (tilt the head, lift the chin, pinch the nose). Repeat until help takes over or the child breathes normally.' },
     ],
   },
   baby: {
@@ -41,11 +37,8 @@ const GUIDES = {
     depth: 'about 4 cm (a third of the chest)',
     hands: 'Two fingers (or two thumbs with hands around the chest) just below the nipple line.',
     steps: [
-      { icon: 'alert', title: 'Check for a response', text: 'Tap the bottom of the foot and call out. Never shake a baby. Look for normal breathing for no more than 10 seconds.' },
-      { icon: 'phone', title: 'Call 112 on speaker', text: 'Keep the baby on a firm, flat surface and stay with them.' },
-      { img: babyBreaths, alt: 'Rescuer covering the baby’s mouth and nose with their mouth to give a breath', title: 'Give 2 gentle breaths', text: 'Keep the head level (not tilted far back). Cover the baby’s mouth and nose with your mouth and give small puffs until the chest rises.' },
-      { img: babyPush, alt: 'Rescuer pressing on the centre of the baby’s chest', title: 'Give 30 chest compressions', text: 'Use two fingers, or two thumbs with your hands around the chest, just below the nipple line. Press about 4 cm deep, 100–120 times a minute.' },
-      { icon: 'activity', title: 'Keep going: 30 compressions, 2 breaths', text: 'Continue until help takes over or the baby starts breathing normally.' },
+      { img: babyBreaths, alt: 'Rescuer covering the baby’s mouth and nose with their mouth to give a breath', title: 'Check, call 112, then give 2 gentle breaths', text: 'Tap the bottom of the foot and call out (never shake a baby). If they do not respond and are not breathing normally, call 112 on speaker. Lay the baby on a firm, flat surface, keep the head level, cover the mouth and nose with your mouth and give 2 small puffs until the chest rises.' },
+      { img: babyPush, alt: 'Rescuer pressing on the centre of the baby’s chest', title: 'Give 30 chest compressions, then repeat', text: 'Press in the centre of the chest just below the nipple line, about 4 cm deep, 100–120 times a minute, with two fingers or two thumbs with your hands around the chest. Then give 2 breaths and repeat until help takes over or the baby breathes normally.' },
     ],
   },
 }
