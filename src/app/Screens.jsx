@@ -6,6 +6,49 @@ import { useContacts, useSaveContact, useDeleteContact, usePlaces, useUpdateMe, 
 import { useLocation } from './location.jsx'
 import { useAuth } from './auth.jsx'
 import { bmi } from './Onboarding.jsx'
+import i18next from 'i18next'
+import { Capacitor } from '@capacitor/core'
+import { Health } from 'capacitor-health'
+
+// Mock Firebase - replace with actual config when backend is ready
+const firebase = {
+  messaging: {
+    isSupported: () => false,
+    onMessage: () => {},
+    requestPermission: () => Promise.resolve('denied')
+  }
+}
+
+// Mock push notification permission request
+export async function requestPushNotificationPermission() {
+  return 'denied'
+}
+// Save FCM token to backend
+export async function saveFcmToken(token) {
+  try {
+    await api.push.saveToken(token)
+  } catch (error) {
+    console.error('Error saving FCM token:', error)
+  }
+}
+
+// On message received handler
+export function onMessage(callback) {
+  if (messaging) {
+    messaging.onMessage((payload) => {
+      callback(payload)
+    })
+  }
+}
+
+// On token refresh handler
+export function onTokenRefresh(callback) {
+  if (messaging) {
+    messaging.onTokenRefresh((newToken) => {
+      callback(newToken)
+    })
+  }
+}
 
 /* ---------- shared bits ---------- */
 
@@ -129,6 +172,7 @@ export function Home({ me, onSos }) {
     { id: 'diet', icon: 'apple', tone: 'amber', label: 'Diet', meta: me.dietResult ? 'Plan ready' : "Log today's meals" },
     { id: 'fit', icon: 'activity', tone: 'purple', label: 'Fit Health', meta: `${me.fit.steps.toLocaleString()} steps today` },
     { id: 'emergencies', icon: 'firstaid', tone: 'red', label: 'Common emergencies', meta: 'CPR, choking, burns and more' },
+    { id: 'travel', icon: 'shield', tone: 'green', label: 'Travel Safe', meta: 'Check-in for trips' },
     { id: 'agent', icon: 'chat', tone: 'green', label: 'Talk to TendTalk', meta: 'Ask a health question' },
   ]
   const checks = [
@@ -137,6 +181,7 @@ export function Home({ me, onSos }) {
     { label: '2+ emergency contacts', ok: (nContacts || 0) >= 2, link: '/app/circle' },
     { label: 'Medical ID (Blood group)', ok: !!m.bloodGroup, link: '/app/medical' },
     { label: 'Trusted hospital', ok: (places.data?.length || 0) > 0, link: '/app/locator' },
+    { label: 'Travel Safe checked in', ok: !!me.travelCheckedIn, link: '/app/travel' },
   ]
   const done = checks.filter((c) => c.ok).length
   const nextStep = checks.find((c) => !c.ok)
@@ -406,6 +451,17 @@ export function Home({ me, onSos }) {
             </Link>
           </article>
         </div>
+
+        {/* AI: health report comparison */}
+        <Link to="/app/reports" className="ai-report-card">
+          <span className="ai-badge-icon"><Icon name="clipboard" size={22} /></span>
+          <div className="ai-report-text">
+            <span className="chip chip-green"><Icon name="sparkle" size={12} /> AI · Health reports</span>
+            <h4>Compare your lab results over time</h4>
+            <p>Upload a lab report and TendAI reads the values, compares them with your past results, flags anything out of range and suggests questions for your doctor.</p>
+          </div>
+          <span className="btn btn-primary btn-sm">Open reports <Icon name="arrowRight" size={16} /></span>
+        </Link>
       </section>
     </div>
   )
@@ -715,101 +771,496 @@ export function Diet({ me }) {
 
 /* ---------- Fit Health ---------- */
 
-function Ring({ value, max, color, children }) {
-  const r = 42
-  const c = 2 * Math.PI * r
-  const pct = Math.min(value / max, 1)
-  return (
-    <div className="ring">
-      <svg viewBox="0 0 100 100" width="112" height="112">
-        <circle cx="50" cy="50" r={r} fill="none" stroke="var(--line)" strokeWidth="9" />
-        <circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} transform="rotate(-90 50 50)" style={{ transition: 'stroke-dashoffset .6s' }} />
-      </svg>
-      <div className="ring-in">{children}</div>
-    </div>
-  )
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+
+// Translation keys for Fit Health section
+const fitTranslations = {
+  en: {
+    title: 'Fit Health',
+    steps: 'Steps',
+    calories: 'Calories',
+    water: 'Water',
+    sleep: 'Sleep',
+    weeklySteps: 'Steps This Week',
+    goal: 'Goal',
+    today: 'Today',
+    mon: 'Mon',
+    tue: 'Tue',
+    wed: 'Wed',
+    thu: 'Thu',
+    fri: 'Fri',
+    sat: 'Sat',
+    body: 'Body',
+    height: 'Height',
+    weight: 'Weight',
+    bmi: 'BMI',
+    smallGoals: 'Small Goals',
+    authorizeHealth: 'Connect your health device',
+    walkAfterLunch: 'Walk 10 minutes after lunch',
+    waterGoal: '8 cups of water',
+    bedtime: 'In bed by 11pm'
+  },
+  yo: {
+    title: 'Fit Health',
+    steps: 'Ìpinnu',
+    calories: 'Irun',
+    water: 'Omi',
+    sleep: 'Ẹ̀rín',
+    weeklySteps: 'Ìpinnu Iweeka',
+    goal: 'Ìṣe-epọ̀',
+    today: 'Ajọsì',
+    mon: 'Ajánlọun',
+    tue: 'Ọjọ́ Ìsẹ́gun',
+    wed: 'Ọjọ́ Owọ́',
+    thu: 'Ọjọ́ Thu',
+    fri: 'Ọjọ́ Ẹ̀bí',
+    sat: 'Ọjọ́ Ìtàn',
+    body: 'Ibadan',
+    height: 'Orílẹ̀-Ẹ̀rín',
+    weight: 'Orọ',
+    bmi: 'BMI',
+    smallGoals: 'Iṣepọ̀ Lẹ̀gba',
+    authorizeHealth: 'Ọ̀pọ̀ àpẹ̀ Ọ́rọ̀ra',
+    walkAfterLunch: 'Fọrẹ 10 órò̀run pẹ̀lú àdọ́la',
+    waterGoal: '8 omi erin',
+    bedtime: 'Ọjọ́ 11 ṣọ́kẹ́rẹ́'
+  },
+  ha: {
+    title: 'Fit Health',
+    steps: 'Lissafa',
+    calories: 'Kalori',
+    water: 'Shiri',
+    sleep: 'Shafa',
+    weeklySteps: 'Lissafa Iweek',
+    goal: 'Karfafa',
+    today: 'Jiki',
+    mon: 'Lahadi',
+    tue: 'Jima',
+    wed: 'Jumat',
+    thu: 'Alhamisi',
+    fri: 'Jimah',
+    sat: 'Asabar',
+    body: 'Jarida',
+    height: 'Urufu',
+    weight: 'Bobi',
+    bmi: 'BMI',
+    smallGoals: 'Matsalar',
+    walkAfterLunch: 'Fara 10 minute after lunch',
+    waterGoal: '8 Shiri',
+    bedtime: 'Lahadi 11 ṣakara'
+  },
+  ig: {
+    title: 'Fit Health',
+    steps: 'Akaeze',
+    calories: 'Ihe na nkali',
+    water: 'Mmiri',
+    sleep: 'Ihe riri',
+    weeklySteps: 'Akaeze Iweek',
+    goal: 'Iheto',
+    today: 'Afo',
+    mon: 'Mọnde',
+    tue: 'Afor',
+    wed: 'Afen',
+    thu: 'Ahụkọ',
+    fri: 'Afikwata',
+    sat: 'Afor',
+    body: 'Ala',
+    height: 'Ọ̀zì ike',
+    weight: 'Akpụnkpụ',
+    bmi: 'BMI',
+    smallGoals: 'Ihe ibelege',
+    authorizeHealth: 'Connect your health device',
+    walkAfterLunch: 'Nwere 10 ụzụ after lunch',
+    waterGoal: '8 mmiri erin',
+    bedtime: 'Afo 11 ụsụakwa'
+  }
 }
+
+async function authorizeHealth() {
+  const available = await Health.isHealthAvailable()
+  if (!available?.available) return false
+  const perms = { permissions: ['READ_STEPS', 'READ_ACTIVE_CALORIES'] }
+  const checked = await Health.checkHealthPermissions(perms)
+  const allGranted = (res) =>
+    Array.isArray(res?.permissions) &&
+    res.permissions.length > 0 &&
+    res.permissions.every((p) => Object.values(p).every(Boolean))
+  if (allGranted(checked)) return true
+  return allGranted(await Health.requestHealthPermissions(perms))
+}
+
+// Read the last 7 days of daily buckets for one health data type.
+async function getDailyBuckets(dataType) {
+  const endDate = new Date()
+  const startDate = new Date(endDate.getTime() - 6 * 24 * 60 * 60 * 1000)
+  startDate.setHours(0, 0, 0, 0)
+  const result = await Health.queryAggregated({
+    dataType,
+    startDate: startDate.toISOString(),
+    endDate: endDate.toISOString(),
+    bucket: 'day'
+  })
+  const buckets = Array(7).fill(0)
+  for (const sample of result?.aggregatedData || []) {
+    const idx = Math.floor((new Date(sample.startDate).getTime() - startDate.getTime()) / 86400000)
+    if (idx >= 0 && idx < 7) buckets[idx] += sample.value || 0
+  }
+  return buckets
+}
+
+// Translate day names based on current language
+function getDayNames(language) {
+  const daysEn = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Today']
+  switch (language) {
+    case 'yo': return ['Ajánlọun', 'Ọjọ́ Ìsẹ́gun', 'Ọjọ́ Owọ́', 'Ọjọ́ Thu', 'Ọjọ́ Ẹ̀bí', 'Ọjọ́ Ìtàn', 'Ajọsì']
+    case 'ha': return ['Lahadi', 'Jima', 'Jumat', 'Alhamisi', 'Jimah', 'Asabar', 'Jiki']
+    case 'ig': return ['Mọnde', 'Afor', 'Afen', 'Ahụkọ', 'Afikwata', 'Afor', 'Afo']
+    default: return daysEn
+  }
+}
+
+// Fallback sample week so the page always renders before a device/backend is connected
+const SAMPLE_WEEK = {
+  steps: [5200, 7400, 8100, 4300, 9200, 6800, 6240],
+  calories: [1600, 1900, 2050, 1400, 2200, 1750, 1840],
+  water: [4, 6, 7, 3, 8, 6, 5],
+  sleep: [7, 6.5, 8, 5.5, 7.5, 6, 6.5]
+}
+
+const latest = (arr) => Number(arr[arr.length - 1]) || 0
 
 export function Fit({ me }) {
   const save = useUpdateMe()
-  const f = me.fit
+  const f = me.fit || {}
   const b = bmi(me.profile)
-  const week = [5200, 7400, 8100, 4300, 9200, 6800, f.steps]
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Today']
-  const maxW = Math.max(...week, f.stepGoal)
-  const setFit = (k, v) => save.mutate({ fit: { [k]: v } })
+  const [language] = useState(() => localStorage.getItem('language') || 'en')
+  const t = (key) => fitTranslations[language]?.[key] ?? fitTranslations.en[key] ?? key
+  const dayNames = getDayNames(language)
+  const [series, setSeries] = useState(SAMPLE_WEEK)
+  const [source, setSource] = useState('sample')
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        if (!(await authorizeHealth())) return
+        const [steps, calories] = await Promise.all([
+          getDailyBuckets('steps'),
+          getDailyBuckets('active-calories')
+        ])
+        if (cancelled) return
+        if (steps.some(Boolean) || calories.some(Boolean)) {
+          setSeries((prev) => ({
+            ...prev,
+            steps: steps.some(Boolean) ? steps : prev.steps,
+            calories: calories.some(Boolean) ? calories : prev.calories
+          }))
+          setSource('device')
+        }
+      } catch {
+        // Health Connect / HealthKit unavailable (web preview or permission denied) - keep sample data
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  const stepGoal = f.stepGoal || 8000
+  const calorieGoal = f.calorieGoal || 2200
+  const waterGoal = f.waterGoal || 8
+  const todayWater = latest(series.water)
+  const setWater = (value) => {
+    const next = Math.max(0, value)
+    setSeries((prev) => ({ ...prev, water: [...prev.water.slice(0, 6), next] }))
+    save.mutate({ fit: { waterCups: next } })
+  }
   const bmiLabel = b ? (b < 18.5 ? ['Underweight', 'amber'] : b < 25 ? ['Healthy range', 'green'] : b < 30 ? ['Overweight', 'amber'] : ['Obese range', 'red']) : null
+  const chartData = (values) => values.map((value, i) => ({ name: dayNames[i], value: Math.round(value) }))
 
   return (
     <div className="page">
-      <SectionHead icon="activity" tone="purple" title="Fit Health" text="Your physical health at a glance. Small goals you choose. This is not live monitoring." action={<span className="demo-tag">Sample data</span>} />
+      <SectionHead
+        icon="activity"
+        tone="purple"
+        title={t('title')}
+        text="Your physical health at a glance. Small goals you choose."
+        action={<span className="demo-tag">{source === 'device' ? 'Health device' : t('smallGoals')}</span>}
+      />
 
       <div className="fit-stats">
         <div className="card fit-card">
-          <Ring value={f.steps} max={f.stepGoal} color="var(--green-600)">
-            <Icon name="footprints" size={20} /><b>{Math.round((f.steps / f.stepGoal) * 100)}%</b>
-          </Ring>
-          <div><small>Steps</small><strong>{f.steps.toLocaleString()}</strong><span>of {f.stepGoal.toLocaleString()}</span></div>
-        </div>
-        <div className="card fit-card">
-          <Ring value={f.calories} max={f.calorieGoal} color="var(--amber-500)">
-            <Icon name="flame" size={20} /><b>{Math.round((f.calories / f.calorieGoal) * 100)}%</b>
-          </Ring>
-          <div><small>Calories</small><strong>{f.calories.toLocaleString()} kcal</strong><span>of {f.calorieGoal.toLocaleString()} target</span></div>
-        </div>
-        <div className="card fit-card">
-          <Ring value={f.waterCups} max={f.waterGoal} color="var(--blue-600)">
-            <Icon name="water" size={20} /><b>{f.waterCups}/{f.waterGoal}</b>
-          </Ring>
           <div>
-            <small>Water</small><strong>{f.waterCups} cups</strong>
+            <small>{t('steps')}</small>
+            <strong>{latest(series.steps).toLocaleString()}</strong>
+            <span>of {stepGoal.toLocaleString()}</span>
+          </div>
+        </div>
+        <div className="card fit-card">
+          <div>
+            <small>{t('calories')}</small>
+            <strong>{latest(series.calories).toLocaleString()} kcal</strong>
+            <span>of {calorieGoal.toLocaleString()} target</span>
+          </div>
+        </div>
+        <div className="card fit-card">
+          <div>
+            <small>{t('water')}</small>
+            <strong>{todayWater}/{waterGoal}</strong>
             <div className="mini-actions">
-              <button className="icon-btn icon-btn-sm" onClick={() => setFit('waterCups', Math.max(0, f.waterCups - 1))} aria-label="Remove a cup">–</button>
-              <button className="icon-btn icon-btn-sm on" onClick={() => setFit('waterCups', f.waterCups + 1)} aria-label="Add a cup"><Icon name="plus" size={14} stroke={3} /></button>
+              <button className="icon-btn icon-btn-sm" onClick={() => setWater(todayWater - 1)} aria-label="Remove a cup">–</button>
+              <button className="icon-btn icon-btn-sm on" onClick={() => setWater(todayWater + 1)} aria-label="Add a cup"><Icon name="plus" size={14} stroke={3} /></button>
             </div>
           </div>
         </div>
         <div className="card fit-card">
-          <Ring value={f.sleepHrs} max={8} color="var(--purple-600)">
-            <Icon name="moon" size={20} /><b>{f.sleepHrs}h</b>
-          </Ring>
-          <div><small>Sleep</small><strong>{f.sleepHrs} hours</strong><span>Goal 7–9 hours</span></div>
+          <div>
+            <small>{t('sleep')}</small>
+            <strong>{latest(series.sleep)}h</strong>
+            <span>Goal 7–9 hours</span>
+          </div>
         </div>
       </div>
 
       <div className="fit-layout">
-        <div className="card">
-          <div className="card-head"><h3>Steps this week</h3><span className="chip chip-green">Goal {f.stepGoal.toLocaleString()}</span></div>
-          <div className="bars">
-            {week.map((w, n) => (
-              <div className="bar-col" key={days[n]}>
-                <span className="bar-val">{(w / 1000).toFixed(1)}k</span>
-                <div className="bar-track">
-                  <span className={`bar-fill ${w >= f.stepGoal ? 'hit' : ''} ${n === 6 ? 'today' : ''}`} style={{ height: `${(w / maxW) * 100}%` }} />
-                </div>
-                <small>{days[n]}</small>
-              </div>
-            ))}
+        <div className="fit-charts">
+          <div className="card">
+            <div className="card-head"><h3>{t('weeklySteps')}</h3><span className="chip chip-green">Goal {stepGoal.toLocaleString()}</span></div>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={chartData(series.steps)} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={12} />
+                <YAxis tickLine={false} axisLine={false} fontSize={12} />
+                <Tooltip />
+                <Line type="monotone" dataKey="value" name={t('steps')} stroke="#1fa46a" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="card">
+            <div className="card-head"><h3>{t('calories')}</h3><span className="chip chip-amber">Goal {calorieGoal.toLocaleString()} kcal</span></div>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={chartData(series.calories)} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={12} />
+                <YAxis tickLine={false} axisLine={false} fontSize={12} />
+                <Tooltip />
+                <Line type="monotone" dataKey="value" name={t('calories')} stroke="#e9a23b" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
         <div className="card">
-          <h3>Body</h3>
+          <h3>{t('body')}</h3>
           <div className="body-stats">
-            <div><small>Height</small><b>{me.profile.heightCm || '–'} <em>cm</em></b></div>
-            <div><small>Weight</small><b>{me.profile.weightKg || '–'} <em>kg</em></b></div>
-            <div><small>BMI</small><b>{b || '–'}</b></div>
+            <div><small>{t('height')}</small><b>{me.profile.heightCm || '–'} <em>cm</em></b></div>
+            <div><small>{t('weight')}</small><b>{me.profile.weightKg || '–'} <em>kg</em></b></div>
+            <div><small>{t('bmi')}</small><b>{b || '–'}</b></div>
           </div>
           {bmiLabel && <span className={`chip chip-${bmiLabel[1]}`}>{bmiLabel[0]}</span>}
           <h3 style={{ marginTop: 22 }}>Small goals</h3>
           <ul className="goal-list">
-            <li><Icon name="check" size={16} stroke={3} /> Walk 10 minutes after lunch</li>
-            <li><Icon name="check" size={16} stroke={3} /> 8 cups of water</li>
-            <li className="todo"><span /> In bed by 11pm</li>
+            <li><Icon name="check" size={16} stroke={3} /> {t('walkAfterLunch')}</li>
+            <li><Icon name="check" size={16} stroke={3} /> {t('waterGoal')}</li>
+            <li className="todo"><span /> {t('bedtime')}</li>
           </ul>
+          <p className="muted" style={{ marginTop: 16, fontSize: 12 }}>
+            {source === 'device'
+              ? 'Showing the last 7 days from Google Health Connect / Apple Health.'
+              : 'Sample data. Connect Health Connect or Apple Health on your device to see your own numbers.'}
+          </p>
         </div>
       </div>
     </div>
   )
+}
+
+/* ---------- Travel Safe Check-in ---------- */
+
+// Travel Safe check-in status
+const travelStatuses = {
+  active: 'Active',
+  completed: 'Completed',
+  missed: 'Missed',
+  snoozed: 'Snoozed'
+}
+
+// Check-in data structure
+function CheckInData({
+  checkInTime,
+  checkOutTime,
+  location,
+  notes,
+  tone = 'green'
+}) {
+  return (
+    <div className="check-in-item" style={{ borderLeft: `4px solid var(--green-600)` }}>
+      <div className="check-in-head">
+        <span className="check-in-time">{checkInTime}</span>
+        {checkOutTime && <span className="check-out-time">{checkOutTime}</span>}
+      </div>
+      <p className="check-in-location">{location || 'Check-in location'}</p>
+      <p className="check-in-notes">{notes || 'No notes'}</p>
+    </div>
+  )
+}
+
+// Travel Safe component
+export function TravelSafe({ me }) {
+  const [hasCheckedIn, setHasCheckedIn] = useState(false)
+  const [checkInTime, setCheckInTime] = useState('')
+  const [checkOutTime, setCheckOutTime] = useState('')
+  const [notes, setNotes] = useState('')
+  const [snooze, setSnooze] = useState(false)
+  const loc = useLocation()
+
+  const checkIn = async () => {
+    setCheckInTime(new Date().toLocaleTimeString())
+    setHasCheckedIn(true)
+    // Save check-in to backend
+    try {
+      await api.travel.saveCheckIn({
+        lat: loc.pos?.lat ?? 0,
+        lng: loc.pos?.lng ?? 0,
+        accuracy: loc.pos?.accuracy ?? 0,
+        notes
+      })
+    } catch (e) {
+      console.error('Check-in failed:', e)
+    }
+  }
+
+  const checkOut = async () => {
+    setCheckOutTime(new Date().toLocaleTimeString())
+    setHasCheckedIn(false)
+    setNotes('')
+    setSnooze(false)
+    // Save check-out to backend
+    try {
+      await api.travel.saveCheckOut({
+        checkInTime,
+        checkOutTime: new Date().toISOString(),
+        location: loc.pos
+      })
+    } catch (e) {
+      console.error('Check-out failed:', e)
+    }
+  }
+
+  const snoozeCheckIn = () => {
+    setSnooze(true)
+    setCheckInTime('')
+    setHasCheckedIn(false)
+  }
+
+  return (
+    <div className="page">
+      <SectionHead icon="shield" tone="green" title="Travel Safe" text="Check-in when traveling. Your location will be shared with emergency contacts if needed." />
+
+      <div className="travel-container">
+        {hasCheckedIn ? (
+          <div className="check-in-summary">
+            <p>Check-in time: {checkInTime}</p>
+            <p>Check-out time: {checkOutTime}</p>
+            <p>Location: accurate to about {loc.pos?.accuracy || '–'} m</p>
+            <p>Notes: {notes || 'No notes'}</p>
+            <button className="btn btn-primary" onClick={checkOut}>End Travel Safe</button>
+            {snooze && <p>Snoozed until next reminder</p>}
+          </div>
+        ) : (
+          <div className="check-in-form">
+            <h3>Check-in for Travel Safe</h3>
+            <p>Let others know you're traveling safely.</p>
+            <textarea
+              className="input"
+              rows={3}
+              placeholder="Add notes about your travel (optional)"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              aria-label="Travel notes"
+            />
+            <div className="form-actions">
+              <button className="btn btn-primary" onClick={checkIn}>Check-in</button>
+              {snooze ? (
+                <button className="btn btn-ghost" onClick={snoozeCheckIn}>Un-snooze</button>
+              ) : (
+                <button className="btn btn-ghost" onClick={snoozeCheckIn}>Snooze 1 hour</button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ---------- YarnGPT Translation Integration ---------- */
+
+// YarnGPT API integration for Nigerian languages
+const YARNGPT_API = 'https://api.yarngpt.ai/v1'
+
+// Translate text using YarnGPT
+async function translateWithYarnGPT(text, targetLanguage) {
+  try {
+    const response = await fetch(`${YARNGPT_API}/translate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_YARNGPT_API_KEY || 'your-api-key'}`
+      },
+      body: JSON.stringify({
+        text,
+        target_language: targetLanguage
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error('Translation failed')
+    }
+
+    const data = await response.json()
+    return data.translated_text || text
+  } catch (error) {
+    console.error('YarnGPT translation error:', error)
+    return text
+  }
+}
+
+// Text-to-speech using YarnGPT
+async function speakWithYarnGPT(text, language, voice) {
+  try {
+    const voiceId = voice || getDefaultVoice(language)
+    const response = await fetch(`${YARNGPT_API}/tts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_YARNGPT_API_KEY || 'your-api-key'}`
+      },
+      body: JSON.stringify({
+        text,
+        voice: voiceId,
+        target_language: language
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error('TTS failed')
+    }
+
+    const blob = await response.blob()
+    return URL.createObjectURL(blob)
+  } catch (error) {
+    console.error('YarnGPT TTS error:', error)
+    return null
+  }
+}
+
+// Get default voice for language
+function getDefaultVoice(language) {
+  const voices = {
+    yo: 'abayomi',
+    ha: 'amina',
+    ig: 'chioma',
+    en: 'idera'
+  }
+  return voices[language] || 'idera'
 }
 
 /* ---------- Settings ---------- */

@@ -87,6 +87,90 @@ const deepMerge = (a, b) => {
   return out
 }
 
+/* ---- health reports (demo: values are generated, not read from the uploaded file) ---- */
+
+export const LAB_TESTS = [
+  { key: 'hb', name: 'Haemoglobin (Hb)', unit: 'g/dL', low: 12.0, high: 16.0, base: 13.2, dp: 1 },
+  { key: 'pcv', name: 'Packed cell volume (PCV)', unit: '%', low: 36, high: 48, base: 40, dp: 0 },
+  { key: 'wbc', name: 'White blood cells', unit: '×10⁹/L', low: 4.0, high: 11.0, base: 6.2, dp: 1 },
+  { key: 'fbs', name: 'Fasting blood sugar', unit: 'mmol/L', low: 3.9, high: 5.5, base: 5.1, dp: 1 },
+  { key: 'hba1c', name: 'HbA1c', unit: '%', low: 4.0, high: 5.6, base: 5.3, dp: 1 },
+  { key: 'chol', name: 'Total cholesterol', unit: 'mmol/L', low: null, high: 5.2, base: 4.7, dp: 1 },
+  { key: 'creat', name: 'Creatinine', unit: 'µmol/L', low: 60, high: 110, base: 82, dp: 0 },
+  { key: 'alt', name: 'ALT (liver enzyme)', unit: 'U/L', low: 7, high: 40, base: 24, dp: 0 },
+]
+const testByKey = Object.fromEntries(LAB_TESTS.map((t) => [t.key, t]))
+const round = (v, dp) => Math.round(v * 10 ** dp) / 10 ** dp
+const toResult = (t, value) => ({ key: t.key, test: t.name, value: round(value, t.dp), unit: t.unit, refLow: t.low, refHigh: t.high })
+
+// Three dated sample reports with a gentle trend (sugar and cholesterol up, Hb down) so comparison has something to show.
+const SAMPLE_SERIES = {
+  hb: [13.1, 12.4, 11.6], pcv: [40, 38, 35], wbc: [6.1, 6.8, 6.4], fbs: [5.2, 5.9, 6.4],
+  hba1c: [5.4, 5.8, 6.1], chol: [4.8, 5.1, 5.6], creat: [80, 84, 83], alt: [22, 25, 23],
+}
+const SAMPLE_DATES = [['2026-03-10', 'Sample Diagnostics, Abeokuta'], ['2026-07-14', 'Sample Diagnostics, Abeokuta'], ['2026-11-02', 'Sample Labs, Lagos']]
+
+function statusOf(r) {
+  if (r.refLow != null && r.value < r.refLow) return 'low'
+  if (r.refHigh != null && r.value > r.refHigh) return 'high'
+  return 'normal'
+}
+
+const MEANING = {
+  hb: { low: 'A low or falling haemoglobin can mean anaemia, which may cause tiredness or breathlessness. Common causes include low iron, blood loss, malaria or other illness.', high: 'A high haemoglobin can happen with dehydration, smoking or some lung and blood conditions.' },
+  pcv: { low: 'PCV usually moves with haemoglobin. A low PCV supports the possibility of anaemia.', high: 'A high PCV can come from dehydration or some blood conditions.' },
+  wbc: { low: 'Low white cells can follow some infections or medicines and may lower your defence against infection.', high: 'High white cells often mean your body is fighting an infection or inflammation.' },
+  fbs: { low: 'Low fasting sugar can cause shakiness or fainting, sometimes from diabetes medicines or skipped meals.', high: 'A fasting sugar above the normal range can be a sign of prediabetes or diabetes, especially if it is rising over time.' },
+  hba1c: { low: 'A low HbA1c is uncommon and can be affected by some blood conditions.', high: 'HbA1c shows your average sugar over about 3 months. A rising value above 5.6% can mean prediabetes (5.7–6.4%) or diabetes (6.5% and above).' },
+  chol: { high: 'Raised cholesterol increases the long-term risk of heart disease and stroke. Diet, activity and sometimes medicine can bring it down.' },
+  creat: { low: 'Low creatinine is usually not a concern and can reflect low muscle mass.', high: 'High creatinine can mean the kidneys are not filtering as well as usual. Dehydration and some medicines can also raise it.' },
+  alt: { high: 'A raised ALT can mean the liver is irritated, for example from fatty liver, alcohol, some medicines or hepatitis.' },
+}
+const QUESTIONS = {
+  hb: ['Do I have anaemia, and what is causing it?', 'Should I take iron, or test for malaria or blood loss?', 'When should I repeat this test?'],
+  pcv: ['Does my PCV match my haemoglobin result?', 'Do I need any treatment for this?'],
+  wbc: ['Could I have an infection right now?', 'Should this be rechecked?'],
+  fbs: ['Do I have prediabetes or diabetes?', 'Do I need an HbA1c or a glucose tolerance test?', 'What changes to diet and activity would help most?'],
+  hba1c: ['Does this mean prediabetes or diabetes?', 'What target should I aim for?', 'How often should I check it?'],
+  chol: ['What is my overall heart risk?', 'Should I check LDL and HDL cholesterol separately?', 'Do I need medicine, or can diet and exercise be enough?'],
+  creat: ['How are my kidneys working (eGFR)?', 'Could any of my medicines be affecting this?'],
+  alt: ['What could be irritating my liver?', 'Should I be tested for hepatitis B or C?', 'Should I stop any medicine or alcohol?'],
+}
+
+function buildInsights(reports) {
+  const sorted = [...reports].sort((a, b) => a.date.localeCompare(b.date))
+  const latest = sorted.at(-1)
+  const prev = sorted.at(-2)
+  if (!latest) return { items: [], latestId: null }
+  const items = []
+  for (const r of latest.results) {
+    const st = statusOf(r)
+    const before = prev?.results.find((x) => x.key === r.key)
+    const changePct = before && before.value ? ((r.value - before.value) / before.value) * 100 : null
+    const bigChange = changePct != null && Math.abs(changePct) >= 10
+    if (st === 'normal' && !bigChange) continue
+    const dir = st !== 'normal' ? st : changePct > 0 ? 'high' : 'low'
+    const meaning = MEANING[r.key]?.[dir] || 'This value has changed noticeably since your last report.'
+    items.push({
+      key: r.key,
+      test: r.test,
+      status: st,
+      value: r.value,
+      unit: r.unit,
+      previous: before?.value ?? null,
+      changePct: changePct == null ? null : Math.round(changePct),
+      summary: st !== 'normal'
+        ? `${r.test} is ${st === 'high' ? 'above' : 'below'} the normal range${before ? `, ${changePct > 0 ? 'up' : 'down'} ${Math.abs(Math.round(changePct))}% since your last report` : ''}.`
+        : `${r.test} is still in range but has ${changePct > 0 ? 'risen' : 'fallen'} ${Math.abs(Math.round(changePct))}% since your last report.`,
+      meaning,
+      questions: QUESTIONS[r.key] || ['What does this result mean for me?', 'Do I need to repeat this test?'],
+    })
+  }
+  const rank = { high: 0, low: 0, normal: 1 }
+  items.sort((a, b) => rank[a.status] - rank[b.status])
+  return { items, latestId: latest.id, comparedWith: prev?.id ?? null, note: 'AI can explain and organise. Qualified professionals make clinical decisions.' }
+}
+
 /* ---- medicine verification (demo records, NOT real NAFDAC data) ---- */
 
 // Fictional sample records so every result state can be demoed. The real backend checks NAFDAC's registration database.
@@ -313,6 +397,55 @@ export function createMockApi() {
         u.me.dietResult = result
         save()
         return result
+      },
+    },
+    reports: {
+      async list() {
+        await wait(200)
+        const u = current()
+        return [...(u.reports || [])].sort((a, b) => b.date.localeCompare(a.date))
+      },
+      // Demo stand-in for OCR: nudges the last values (or baselines) instead of reading the file.
+      async extract(file) {
+        await wait(1500)
+        const u = current()
+        const last = [...(u.reports || [])].sort((a, b) => b.date.localeCompare(a.date))[0]
+        const results = LAB_TESTS.map((t) => {
+          const prev = last?.results.find((r) => r.key === t.key)?.value ?? t.base
+          return toResult(t, prev * (1 + (Math.random() - 0.45) * 0.12))
+        })
+        return { fileName: file?.name || 'report', lab: '', date: new Date().toISOString().slice(0, 10), results, demo: true }
+      },
+      async create({ date, lab, results, fileName }) {
+        await wait(400)
+        const u = current()
+        u.reports ||= []
+        const item = { id: uid('rep'), date, lab, fileName, results: results.map((r) => ({ ...r, value: Number(r.value) })) }
+        u.reports.push(item)
+        save()
+        return item
+      },
+      async remove(id) {
+        await wait(200)
+        const u = current()
+        u.reports = (u.reports || []).filter((r) => r.id !== id)
+        save()
+        return null
+      },
+      async insights() {
+        await wait(900)
+        return buildInsights(current().reports || [])
+      },
+      async loadSamples() {
+        await wait(500)
+        const u = current()
+        u.reports ||= []
+        SAMPLE_DATES.forEach(([date, lab], i) => {
+          if (u.reports.some((r) => r.date === date)) return
+          u.reports.push({ id: uid('rep'), date, lab, fileName: `sample-report-${i + 1}.pdf`, sample: true, results: Object.entries(SAMPLE_SERIES).map(([k, vals]) => toResult(testByKey[k], vals[i])) })
+        })
+        save()
+        return null
       },
     },
     medicines: {

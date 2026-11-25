@@ -98,6 +98,10 @@ GET  /incidents/:id/stream    SSE: { target, channel, status, at }
 POST /incidents/:id/cancel
 POST /diet/analyse            { meals: {breakfast, lunch, dinner, snacks} } -> { recommendations[], frequency, note }
 POST /agent/chat              { messages[] } -> streamed reply
+POST /reports/extract         multipart file (photo/PDF) -> OCR -> { fileName, date, lab, results[] } (user checks before saving)
+POST /reports                 { date, lab, fileName, results: [{ key, test, value, unit, refLow, refHigh }] }
+GET  /reports   DELETE /reports/:id
+GET  /reports/insights        -> { items: [{ key, test, status, value, previous, changePct, summary, meaning, questions[] }], note }
 GET  /medicines/verify?nafdac=A4-1234
                               -> { nafdacNo, status: registered|expired|suspended|not_found,
                                    name, activeIngredients[], form, category, holder, manufacturer,

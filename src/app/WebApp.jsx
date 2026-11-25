@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Route, Routes, useLocation as useRouterLocation } from 'react-router'
 import Icon, { Logo } from '../components/Icon.jsx'
 import QueryState from '../components/QueryState.jsx'
@@ -7,10 +7,11 @@ import { useAuth } from './auth.jsx'
 import { LocationProvider, useLocation } from './location.jsx'
 import { Onboarding, Permissions, profileComplete } from './Onboarding.jsx'
 import { ErrorBox } from '../components/QueryState.jsx'
-import { Home, Circle, Medical, Diet, Fit, Settings } from './Screens.jsx'
+import { Home, Circle, Medical, Diet, Fit, Settings, TravelSafe } from './Screens.jsx'
 import { EmergencyHub, EmergencyDetail } from './Emergencies.jsx'
 import Locator from './Locator.jsx'
 import Verify from './Verify.jsx'
+import Reports from './Reports.jsx'
 import Agent from './Agent.jsx'
 import Sos from './Sos.jsx'
 import './app.css'
@@ -24,6 +25,8 @@ export const sections = [
   { id: 'diet', path: 'diet', label: 'Diet', short: 'Diet', icon: 'apple', tone: 'amber' },
   { id: 'fit', path: 'fit', label: 'Fit Health', short: 'Fit', icon: 'activity', tone: 'purple' },
   { id: 'emergencies', path: 'emergencies', label: 'Common emergencies', short: 'Emergencies', icon: 'firstaid', tone: 'red' },
+  { id: 'reports', path: 'reports', label: 'Health reports', short: 'Reports', icon: 'clipboard', tone: 'green' },
+  { id: 'travel', path: 'travel', label: 'Travel Safe', short: 'Travel', icon: 'shield', tone: 'green' },
   { id: 'agent', path: 'agent', label: 'TendTalk agent', short: 'TendTalk', icon: 'chat' },
   { id: 'settings', path: 'settings', label: 'Settings', icon: 'settings' },
 ]
@@ -35,6 +38,76 @@ function LocationChip() {
   if (status === 'live') return <span className="chip chip-green loc-chip"><Icon name="pin" size={14} /> Location on · ±{pos.accuracy} m</span>
   if (status === 'locating') return <span className="chip chip-amber loc-chip"><Icon name="pin" size={14} /> Finding you…</span>
   return <Link to="/app/settings" className="chip chip-grey loc-chip"><Icon name="pin" size={14} /> Location off</Link>
+}
+
+// Grouping for the mobile menu drawer (everything the bottom bar has no room for, plus the rest).
+const MENU_GROUPS = [
+  { title: 'Emergency', ids: ['home', 'emergencies', 'circle', 'medical', 'locator'] },
+  { title: 'Everyday health', ids: ['verify', 'diet', 'fit'] },
+  { title: 'AI', ids: ['agent', 'reports'] },
+  { title: 'Account', ids: ['settings'] },
+]
+
+function MenuDrawer({ me, onClose, signOut }) {
+  const panel = useRef(null)
+  useEffect(() => {
+    const opener = document.activeElement
+    panel.current?.querySelector('a, button')?.focus()
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'Tab' && panel.current) {
+        const f = panel.current.querySelectorAll('a, button')
+        const firstEl = f[0]
+        const lastEl = f[f.length - 1]
+        if (e.shiftKey && document.activeElement === firstEl) { e.preventDefault(); lastEl.focus() }
+        else if (!e.shiftKey && document.activeElement === lastEl) { e.preventDefault(); firstEl.focus() }
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+      opener?.focus?.()
+    }
+  }, [onClose])
+
+  return (
+    <div className="drawer-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <aside ref={panel} className="drawer" role="dialog" aria-modal="true" aria-label="Menu">
+        <div className="drawer-head">
+          <Logo size={28} />
+          <button className="icon-btn" onClick={onClose} aria-label="Close menu"><Icon name="x" size={22} /></button>
+        </div>
+        <nav className="drawer-nav">
+          {MENU_GROUPS.map((g) => (
+            <div key={g.title} className="drawer-group">
+              <small>{g.title}</small>
+              {g.ids.map((id) => {
+                const s = byId[id]
+                return (
+                  <NavLink key={id} to={to(s)} end={id === 'home'} onClick={onClose} className={({ isActive }) => `drawer-item ${isActive ? 'is-active' : ''}`}>
+                    <span className={`drawer-ico ${s.tone ? `tone-${s.tone}` : 'tone-grey'}`}><Icon name={s.icon} size={18} /></span>
+                    <span>{s.label}</span>
+                    <Icon name="chevronRight" size={16} />
+                  </NavLink>
+                )
+              })}
+            </div>
+          ))}
+        </nav>
+        <div className="drawer-foot">
+          <span className="avatar">{(me.profile.name || 'Y')[0].toUpperCase()}</span>
+          <div>
+            <strong>{me.profile.name || 'You'}</strong>
+            <small>{me.phone}</small>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={() => { onClose(); signOut() }}><Icon name="logout" size={16} /> Sign out</button>
+        </div>
+      </aside>
+    </div>
+  )
 }
 
 function Shell({ me }) {
@@ -64,6 +137,9 @@ function Shell({ me }) {
   const hr = new Date().getHours()
   const greeting = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening'
   const startSos = () => setSosOpen(true)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const closeMenu = useCallback(() => setMenuOpen(false), [])
+  useEffect(() => setMenuOpen(false), [pathname])
 
   return (
     <div className={`shell ${collapsed ? 'rail-collapsed' : ''}`}>
@@ -100,6 +176,9 @@ function Shell({ me }) {
       <div className="main">
         <header className="topbar">
           <div className="topbar-left">
+            <button className="icon-btn topbar-menu" onClick={() => setMenuOpen(true)} aria-label="Open menu" aria-expanded={menuOpen} aria-haspopup="dialog">
+              <Icon name="menu" size={22} />
+            </button>
             <Link to="/" className="topbar-logo"><Logo size={28} /></Link>
             <div className="topbar-title">
               <h1>{current.id === 'home' ? `${greeting}, ${first}` : current.label}</h1>
@@ -120,11 +199,13 @@ function Shell({ me }) {
             <Route path="circle" element={<Circle />} />
             <Route path="medical" element={<Medical me={me} />} />
             <Route path="verify" element={<Verify />} />
+            <Route path="reports" element={<Reports />} />
             <Route path="locator" element={<Locator />} />
             <Route path="diet" element={<Diet me={me} />} />
             <Route path="fit" element={<Fit me={me} />} />
             <Route path="emergencies" element={<EmergencyHub onSos={startSos} />} />
             <Route path="emergencies/:id" element={<EmergencyDetail onSos={startSos} />} />
+            <Route path="travel" element={<TravelSafe me={me} />} />
             <Route path="cpr" element={<Navigate to="/app/emergencies/cpr" replace />} />
             <Route path="agent" element={<Agent me={me} />} />
             <Route path="settings" element={<Settings me={me} />} />
@@ -134,7 +215,7 @@ function Shell({ me }) {
       </div>
 
       <nav className="bottombar" aria-label="Main">
-        {[byId.home, byId.locator, byId.agent, byId.medical, byId.circle].map((s) => (
+        {[byId.home, byId.locator, byId.agent, byId.medical, byId.fit, byId.circle, byId.travel].map((s) => (
           <NavLink key={s.id} to={to(s)} end={s.id === 'home'} className={({ isActive }) => `bb-item ${isActive ? 'is-active' : ''} ${s.id === 'agent' ? 'bb-agent' : ''}`}>
             <span className="bb-ico"><Icon name={s.icon} size={s.id === 'agent' ? 26 : 22} /></span>
             <span>{s.short}</span>
@@ -142,6 +223,7 @@ function Shell({ me }) {
         ))}
       </nav>
 
+      {menuOpen && <MenuDrawer me={me} onClose={closeMenu} signOut={signOut} />}
       {sosOpen && <Sos me={me} onClose={() => setSosOpen(false)} />}
     </div>
   )
