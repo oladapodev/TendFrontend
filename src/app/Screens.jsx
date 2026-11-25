@@ -172,7 +172,6 @@ export function Home({ me, onSos }) {
     { id: 'diet', icon: 'apple', tone: 'amber', label: 'Diet', meta: me.dietResult ? 'Plan ready' : "Log today's meals" },
     { id: 'fit', icon: 'activity', tone: 'purple', label: 'Fit Health', meta: `${me.fit.steps.toLocaleString()} steps today` },
     { id: 'emergencies', icon: 'firstaid', tone: 'red', label: 'Common emergencies', meta: 'CPR, choking, burns and more' },
-    { id: 'travel', icon: 'shield', tone: 'green', label: 'Travel Safe', meta: 'Check-in for trips' },
     { id: 'agent', icon: 'chat', tone: 'green', label: 'Talk to TendTalk', meta: 'Ask a health question' },
   ]
   const checks = [
@@ -181,7 +180,6 @@ export function Home({ me, onSos }) {
     { label: '2+ emergency contacts', ok: (nContacts || 0) >= 2, link: '/app/circle' },
     { label: 'Medical ID (Blood group)', ok: !!m.bloodGroup, link: '/app/medical' },
     { label: 'Trusted hospital', ok: (places.data?.length || 0) > 0, link: '/app/locator' },
-    { label: 'Travel Safe checked in', ok: !!me.travelCheckedIn, link: '/app/travel' },
   ]
   const done = checks.filter((c) => c.ok).length
   const nextStep = checks.find((c) => !c.ok)
@@ -1362,125 +1360,6 @@ export function Fit({ me }) {
               : 'Sample data. Connect Health Connect or Apple Health on your device to see your own numbers.'}
           </p>
         </div>
-      </div>
-    </div>
-  )
-}
-
-/* ---------- Travel Safe Check-in ---------- */
-
-// Travel Safe check-in status
-const travelStatuses = {
-  active: 'Active',
-  completed: 'Completed',
-  missed: 'Missed',
-  snoozed: 'Snoozed'
-}
-
-// Check-in data structure
-function CheckInData({
-  checkInTime,
-  checkOutTime,
-  location,
-  notes,
-  tone = 'green'
-}) {
-  return (
-    <div className="check-in-item" style={{ borderLeft: `4px solid var(--green-600)` }}>
-      <div className="check-in-head">
-        <span className="check-in-time">{checkInTime}</span>
-        {checkOutTime && <span className="check-out-time">{checkOutTime}</span>}
-      </div>
-      <p className="check-in-location">{location || 'Check-in location'}</p>
-      <p className="check-in-notes">{notes || 'No notes'}</p>
-    </div>
-  )
-}
-
-// Travel Safe component
-export function TravelSafe({ me }) {
-  const [hasCheckedIn, setHasCheckedIn] = useState(false)
-  const [checkInTime, setCheckInTime] = useState('')
-  const [checkOutTime, setCheckOutTime] = useState('')
-  const [notes, setNotes] = useState('')
-  const [snooze, setSnooze] = useState(false)
-  const loc = useLocation()
-
-  const checkIn = async () => {
-    setCheckInTime(new Date().toLocaleTimeString())
-    setHasCheckedIn(true)
-    // Save check-in to backend
-    try {
-      await api.travel.saveCheckIn({
-        lat: loc.pos?.lat ?? 0,
-        lng: loc.pos?.lng ?? 0,
-        accuracy: loc.pos?.accuracy ?? 0,
-        notes
-      })
-    } catch (e) {
-      console.error('Check-in failed:', e)
-    }
-  }
-
-  const checkOut = async () => {
-    setCheckOutTime(new Date().toLocaleTimeString())
-    setHasCheckedIn(false)
-    setNotes('')
-    setSnooze(false)
-    // Save check-out to backend
-    try {
-      await api.travel.saveCheckOut({
-        checkInTime,
-        checkOutTime: new Date().toISOString(),
-        location: loc.pos
-      })
-    } catch (e) {
-      console.error('Check-out failed:', e)
-    }
-  }
-
-  const snoozeCheckIn = () => {
-    setSnooze(true)
-    setCheckInTime('')
-    setHasCheckedIn(false)
-  }
-
-  return (
-    <div className="page">
-      <SectionHead icon="shield" tone="green" title="Travel Safe" text="Check-in when traveling. Your location will be shared with emergency contacts if needed." />
-
-      <div className="travel-container">
-        {hasCheckedIn ? (
-          <div className="check-in-summary">
-            <p>Check-in time: {checkInTime}</p>
-            <p>Check-out time: {checkOutTime}</p>
-            <p>Location: accurate to about {loc.pos?.accuracy || '–'} m</p>
-            <p>Notes: {notes || 'No notes'}</p>
-            <button className="btn btn-primary" onClick={checkOut}>End Travel Safe</button>
-            {snooze && <p>Snoozed until next reminder</p>}
-          </div>
-        ) : (
-          <div className="check-in-form">
-            <h3>Check-in for Travel Safe</h3>
-            <p>Let others know you're traveling safely.</p>
-            <textarea
-              className="input"
-              rows={3}
-              placeholder="Add notes about your travel (optional)"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              aria-label="Travel notes"
-            />
-            <div className="form-actions">
-              <button className="btn btn-primary" onClick={checkIn}>Check-in</button>
-              {snooze ? (
-                <button className="btn btn-ghost" onClick={snoozeCheckIn}>Un-snooze</button>
-              ) : (
-                <button className="btn btn-ghost" onClick={snoozeCheckIn}>Snooze 1 hour</button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

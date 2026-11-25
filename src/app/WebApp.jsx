@@ -7,7 +7,7 @@ import { useAuth } from './auth.jsx'
 import { LocationProvider, useLocation } from './location.jsx'
 import { Onboarding, Permissions, profileComplete } from './Onboarding.jsx'
 import { ErrorBox } from '../components/QueryState.jsx'
-import { Home, Circle, Medical, Diet, Fit, Settings, TravelSafe } from './Screens.jsx'
+import { Home, Circle, Medical, Diet, Fit, Settings } from './Screens.jsx'
 import { EmergencyHub, EmergencyDetail } from './Emergencies.jsx'
 import Locator from './Locator.jsx'
 import Verify from './Verify.jsx'
@@ -26,7 +26,6 @@ export const sections = [
   { id: 'fit', path: 'fit', label: 'Fit Health', short: 'Fit', icon: 'activity', tone: 'purple' },
   { id: 'emergencies', path: 'emergencies', label: 'Common emergencies', short: 'Emergencies', icon: 'firstaid', tone: 'red' },
   { id: 'reports', path: 'reports', label: 'Health reports', short: 'Reports', icon: 'clipboard', tone: 'green' },
-  { id: 'travel', path: 'travel', label: 'Travel Safe', short: 'Travel', icon: 'shield', tone: 'green' },
   { id: 'agent', path: 'agent', label: 'TendTalk agent', short: 'TendTalk', icon: 'chat' },
   { id: 'settings', path: 'settings', label: 'Settings', icon: 'settings' },
 ]
@@ -205,7 +204,6 @@ function Shell({ me }) {
             <Route path="fit" element={<Fit me={me} />} />
             <Route path="emergencies" element={<EmergencyHub onSos={startSos} />} />
             <Route path="emergencies/:id" element={<EmergencyDetail onSos={startSos} />} />
-            <Route path="travel" element={<TravelSafe me={me} />} />
             <Route path="cpr" element={<Navigate to="/app/emergencies/cpr" replace />} />
             <Route path="agent" element={<Agent me={me} />} />
             <Route path="settings" element={<Settings me={me} />} />
@@ -215,7 +213,8 @@ function Shell({ me }) {
       </div>
 
       <nav className="bottombar" aria-label="Main">
-        {[byId.home, byId.locator, byId.agent, byId.medical, byId.fit].map((s) => (
+        {/* Bottom bar has room for 5; everything else (Fit, Diet, Reports, …) is in the hamburger menu. */}
+        {[byId.home, byId.locator, byId.agent, byId.medical, byId.circle].map((s) => (
           <NavLink key={s.id} to={to(s)} end={s.id === 'home'} className={({ isActive }) => `bb-item ${isActive ? 'is-active' : ''} ${s.id === 'agent' ? 'bb-agent' : ''}`}>
             <span className="bb-ico"><Icon name={s.icon} size={s.id === 'agent' ? 26 : 22} /></span>
             <span>{s.short}</span>
