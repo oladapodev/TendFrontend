@@ -564,3 +564,7 @@
 .lf-pin.is-sel::after { border-top-color: var(--green-600); }
 .lf-pin.is-sel b { color: #fff; }
 .leaflet-container a.btn-primary { color: #fff; }
+
+/* required personal details */
+.req-tag { margin-left: 8px; font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--green-100); opacity: 0.8; }
+.gate-msg { max-width: 480px; margin: 20vh auto 0; padding: 0 16px; display: grid; gap: 16px; justify-items: start; }
