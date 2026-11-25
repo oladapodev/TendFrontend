@@ -127,6 +127,22 @@ export function useLoadSampleReports() {
   })
 }
 
+// NAFDAC Greenbook (registered drugs)
+export function useDrugSearch(q) {
+  const term = q.trim()
+  return useQuery({
+    queryKey: ['drugs', term.toLowerCase()],
+    queryFn: ({ signal }) => api.drugs.search(term, { signal }),
+    enabled: term.length >= 2,
+    staleTime: 10 * 60_000,
+    placeholderData: (prev) => prev,
+  })
+}
+
+export function useVerifyDrug() {
+  return useMutation({ mutationFn: api.drugs.verify })
+}
+
 export function useAnalyseDiet() {
   const qc = useQueryClient()
   return useMutation({

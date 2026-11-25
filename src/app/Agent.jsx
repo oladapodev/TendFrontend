@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from '../components/Icon.jsx'
-import { api, isDemo } from '../api/index.js'
+import { useLocation } from './location.jsx'
+import { api } from '../api/index.js'
 
 const prompts = [
   'What should I do if someone faints?',
@@ -10,6 +11,7 @@ const prompts = [
 ]
 
 export default function Agent({ me }) {
+  const loc = useLocation()
   const first = me.profile.name.split(' ')[0] || 'there'
   const [msgs, setMsgs] = useState([{ role: 'assistant', content: `Hi ${first}, I'm TendTalk. Ask me a health question, or ask for help preparing for a hospital visit.` }])
   const [text, setText] = useState('')
@@ -35,9 +37,12 @@ export default function Agent({ me }) {
       setBusy(false)
       setMsgs((m) => m.map((x, i) => (i === m.length - 1 ? { ...x, pending: false } : x)))
     }
+    const fix = loc.pos
     stop.current = api.agent.chat(
       history.map(({ role, content }) => ({ role, content })),
       {
+        lat: fix?.lat,
+        lng: fix?.lng,
         onEvent: (e) => {
           const piece = typeof e === 'string' ? e : e.text || ''
           if (!piece) return
@@ -67,7 +72,6 @@ export default function Agent({ me }) {
           <strong>TendTalk</strong>
           <small><span className="dot-online" /> Your TendAI health companion</small>
         </div>
-        {isDemo && <span className="demo-tag" style={{ marginLeft: 'auto' }}>Demo replies</span>}
       </div>
 
       <div className="agent-body" aria-live="polite">

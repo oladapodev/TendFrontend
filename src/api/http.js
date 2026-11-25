@@ -1,5 +1,5 @@
 // Real backend adapter (FastAPI). Endpoints follow docs/IMPLEMENTATION_PLAN.md §6.
-import { getToken, clearToken } from './session.js'
+import { getToken, setToken, clearToken } from './session.js'
 
 export class ApiError extends Error {
   constructor(message, status, body) {
@@ -70,11 +70,14 @@ export function createHttpApi(baseUrl) {
   }
 
   return {
-    mode: 'live',
     auth: {
       // mode: 'signup' (number must be new) or 'signin' (number must exist). Server replies 409 / 404 otherwise.
       requestOtp: (phone, mode = 'signin') => request('/auth/otp', { method: 'POST', body: { phone, mode } }),
-      verifyOtp: (phone, code) => request('/auth/verify', { method: 'POST', body: { phone, code } }),
+      verifyOtp: async (phone, code) => {
+        const r = await request('/auth/verify', { method: 'POST', body: { phone, code } })
+        setToken(r.token)
+        return r
+      },
       logout: () => request('/auth/logout', { method: 'POST' }).catch(() => null),
     },
     me: {
@@ -94,6 +97,10 @@ export function createHttpApi(baseUrl) {
     },
     facilities: {
       near: ({ lat, lng, radiusKm = 15 }) => request(`/facilities?lat=${lat}&lng=${lng}&radius=${radiusKm}`),
+    },
+    drugs: {
+      search: (q, { limit = 20, signal } = {}) => request(`/greenbook/search?q=${encodeURIComponent(q)}&limit=${limit}`, { signal }),
+      verify: (reg) => request(`/greenbook/verify/${encodeURIComponent(reg.trim())}`),
     },
     incidents: {
       create: (payload) => request('/incidents', { method: 'POST', body: payload }),
@@ -124,7 +131,7 @@ export function createHttpApi(baseUrl) {
       verify: (nafdacNo) => request(`/medicines/verify?nafdac=${encodeURIComponent(nafdacNo)}`),
     },
     agent: {
-      chat: (messages, handlers) => streamEvents('/agent/chat', { method: 'POST', body: { messages }, ...handlers }),
+      chat: (messages, { lat, lng, ...handlers } = {}) => streamEvents('/agent/chat', { method: 'POST', body: { messages, lat, lng }, ...handlers }),
     },
   }
 }

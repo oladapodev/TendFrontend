@@ -119,7 +119,7 @@ export default function Locator() {
 
       <div className="loc-map-wrap">
         <MapContainer center={[loc.center.lat, loc.center.lng]} zoom={14} className="lf-map" scrollWheelZoom zoomControl>
-          <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19} />
+          <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, facilities &copy; GRID3 (CC BY 4.0)' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19} />
           {loc.pos && (
             <>
               <LCircle center={[loc.pos.lat, loc.pos.lng]} radius={loc.pos.accuracy} pathOptions={{ color: '#2563a8', weight: 1, fillOpacity: 0.08 }} />
@@ -162,9 +162,11 @@ export default function Locator() {
               {sel.phone && <div><dt><Icon name="phone" size={14} /> Phone</dt><dd>{sel.phone} {sel.verified === false && <span className="demo-tag">Unverified</span>}</dd></div>}
               {sel.address && <div><dt><Icon name="pin" size={14} /> Address</dt><dd>{sel.address}</dd></div>}
               {sel.open && <div><dt><Icon name="clock" size={14} /> Hours</dt><dd>{sel.open}</dd></div>}
+              {sel.status && sel.status !== 'Unknown' && <div><dt><Icon name="info" size={14} /> Status</dt><dd>{sel.status}</dd></div>}
+              {(sel.level || sel.ownership) && <div><dt><Icon name="hospital" size={14} /> Level</dt><dd style={{ textTransform: 'capitalize' }}>{[sel.level, sel.ownership].filter(Boolean).join(' · ')}</dd></div>}
               {sel.services?.length > 0 && <div><dt><Icon name="hospital" size={14} /> Services</dt><dd className="loc-services">{sel.services.map((s) => <span className="chip chip-grey" key={s}>{s}</span>)}</dd></div>}
             </dl>
-            <p className="note"><Icon name="info" size={14} /> A listing is not live capacity. Call ahead when you can.</p>
+            <p className="note"><Icon name="info" size={14} /> A listing is not live capacity. Call ahead when you can.{sel.source && <> Source: {sel.source.replaceAll('|', ', ').replace('osm_legacy', 'OSM').replace('osm', 'OpenStreetMap').replace('grid3', 'GRID3').replace('hdx', 'HDX')}.</>}</p>
           </div>
         )}
       </div>

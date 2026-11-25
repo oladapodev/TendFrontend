@@ -13,6 +13,7 @@ import Locator from './Locator.jsx'
 import Verify from './Verify.jsx'
 import Reports from './Reports.jsx'
 import Agent from './Agent.jsx'
+import Drugs from './Drugs.jsx'
 import Sos from './Sos.jsx'
 import './app.css'
 
@@ -22,6 +23,7 @@ export const sections = [
   { id: 'medical', path: 'medical', label: 'Medical ID', short: 'Medical ID', icon: 'drop', tone: 'red' },
   { id: 'verify', path: 'verify', label: 'Verify medicine', short: 'Verify', icon: 'pill', tone: 'blue' },
   { id: 'locator', path: 'locator', label: 'Help Locator', short: 'Locator', icon: 'map', tone: 'blue' },
+  { id: 'drugs', path: 'drugs', label: 'Check a drug', short: 'Drugs', icon: 'shield', tone: 'green' },
   { id: 'diet', path: 'diet', label: 'Diet', short: 'Diet', icon: 'apple', tone: 'amber' },
   { id: 'fit', path: 'fit', label: 'Fit Health', short: 'Fit', icon: 'activity', tone: 'purple' },
   { id: 'emergencies', path: 'emergencies', label: 'Common emergencies', short: 'Emergencies', icon: 'firstaid', tone: 'red' },
@@ -200,6 +202,7 @@ function Shell({ me }) {
             <Route path="verify" element={<Verify />} />
             <Route path="reports" element={<Reports />} />
             <Route path="locator" element={<Locator />} />
+            <Route path="drugs" element={<Drugs />} />
             <Route path="diet" element={<Diet me={me} />} />
             <Route path="fit" element={<Fit me={me} />} />
             <Route path="emergencies" element={<EmergencyHub onSos={startSos} />} />

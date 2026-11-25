@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { ABEOKUTA } from '../api/mock.js'
+import { ABEOKUTA } from './util.js'
 
 // Live device location. Falls back to central Abeokuta (marked approximate) when location is off.
 const Ctx = createContext(null)

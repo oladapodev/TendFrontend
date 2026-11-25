@@ -6,6 +6,7 @@ import { useContacts, useSaveContact, useDeleteContact, usePlaces, useUpdateMe, 
 import { useLocation } from './location.jsx'
 import { useAuth } from './auth.jsx'
 import { bmi } from './Onboarding.jsx'
+import { dayKey, dayLabel, fitToday } from './util.js'
 
 /* ---------- shared bits ---------- */
 
@@ -126,8 +127,9 @@ export function Home({ me, onSos }) {
     { id: 'medical', icon: 'drop', tone: 'red', label: 'Medical ID', meta: m.bloodGroup ? `${m.bloodGroup} · Genotype ${m.genotype || '–'}` : 'Add blood group' },
     { id: 'locator', icon: 'map', tone: 'blue', label: 'Help Locator', meta: nearest ? `Nearest care ${nearest.distanceKm} km` : 'Find care near you' },
     { id: 'verify', icon: 'pill', tone: 'blue', label: 'Verify medicine', meta: 'Check a NAFDAC number' },
+    { id: 'drugs', icon: 'shield', tone: 'green', label: 'Check a drug', meta: 'NAFDAC registration' },
     { id: 'diet', icon: 'apple', tone: 'amber', label: 'Diet', meta: me.dietResult ? 'Plan ready' : "Log today's meals" },
-    { id: 'fit', icon: 'activity', tone: 'purple', label: 'Fit Health', meta: `${me.fit.steps.toLocaleString()} steps today` },
+    { id: 'fit', icon: 'activity', tone: 'purple', label: 'Fit Health', meta: fitToday(me.fit).steps ? `${fitToday(me.fit).steps.toLocaleString()} steps today` : 'Log today' },
     { id: 'emergencies', icon: 'firstaid', tone: 'red', label: 'Common emergencies', meta: 'CPR, choking, burns and more' },
     { id: 'agent', icon: 'chat', tone: 'green', label: 'Talk to TendTalk', meta: 'Ask a health question' },
   ]
@@ -741,32 +743,49 @@ function Ring({ value, max, color, children }) {
   )
 }
 
+// Today's values come from util.js; history keeps one steps number per day for the weekly chart.
+function LogNumber({ label, value, unit, step = 1, onSave }) {
+  const [v, setV] = useState(String(value || ''))
+  return (
+    <form className="mini-actions" onSubmit={(e) => { e.preventDefault(); onSave(Math.max(0, Number(v) || 0)) }}>
+      <input className="input" style={{ height: 32, width: 96, padding: '0 8px' }} type="number" min="0" step={step} aria-label={label} value={v} onChange={(e) => setV(e.target.value)} placeholder={unit} />
+      <button className="icon-btn icon-btn-sm on" aria-label={`Save ${label}`}><Icon name="check" size={14} stroke={3} /></button>
+    </form>
+  )
+}
+
 export function Fit({ me }) {
   const save = useUpdateMe()
-  const f = me.fit
+  const f = fitToday(me.fit)
   const b = bmi(me.profile)
-  const week = [5200, 7400, 8100, 4300, 9200, 6800, f.steps]
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Today']
+  const offsets = [6, 5, 4, 3, 2, 1, 0]
+  const week = offsets.map((o) => (o === 0 ? f.steps : f.history[dayKey(o)] || 0))
+  const days = offsets.map(dayLabel)
   const maxW = Math.max(...week, f.stepGoal)
-  const setFit = (k, v) => save.mutate({ fit: { [k]: v } })
+  // Always save the whole day so values never mix with an earlier day's numbers.
+  const setFit = (k, v) => save.mutate({ fit: { date: dayKey(0), steps: f.steps, calories: f.calories, waterCups: f.waterCups, sleepHrs: f.sleepHrs, [k]: v } })
   const bmiLabel = b ? (b < 18.5 ? ['Underweight', 'amber'] : b < 25 ? ['Healthy range', 'green'] : b < 30 ? ['Overweight', 'amber'] : ['Obese range', 'red']) : null
 
   return (
     <div className="page">
-      <SectionHead icon="activity" tone="purple" title="Fit Health" text="Your physical health at a glance. Small goals you choose. This is not live monitoring." action={<span className="demo-tag">Sample data</span>} />
+      <SectionHead icon="activity" tone="purple" title="Fit Health" text="Log today's steps, food energy, water and sleep. Small goals you choose. This is not live monitoring." action={<SaveState mutation={save} />} />
 
       <div className="fit-stats">
         <div className="card fit-card">
           <Ring value={f.steps} max={f.stepGoal} color="var(--green-600)">
             <Icon name="footprints" size={20} /><b>{Math.round((f.steps / f.stepGoal) * 100)}%</b>
           </Ring>
-          <div><small>Steps</small><strong>{f.steps.toLocaleString()}</strong><span>of {f.stepGoal.toLocaleString()}</span></div>
+          <div><small>Steps</small><strong>{f.steps.toLocaleString()}</strong><span>of {f.stepGoal.toLocaleString()}</span>
+            <LogNumber key={f.steps} label="steps" unit="steps" value={f.steps} onSave={(n) => setFit('steps', Math.round(n))} />
+          </div>
         </div>
         <div className="card fit-card">
           <Ring value={f.calories} max={f.calorieGoal} color="var(--amber-500)">
             <Icon name="flame" size={20} /><b>{Math.round((f.calories / f.calorieGoal) * 100)}%</b>
           </Ring>
-          <div><small>Calories</small><strong>{f.calories.toLocaleString()} kcal</strong><span>of {f.calorieGoal.toLocaleString()} target</span></div>
+          <div><small>Calories</small><strong>{f.calories.toLocaleString()} kcal</strong><span>of {f.calorieGoal.toLocaleString()} target</span>
+            <LogNumber key={f.calories} label="calories" unit="kcal" value={f.calories} onSave={(n) => setFit('calories', Math.round(n))} />
+          </div>
         </div>
         <div className="card fit-card">
           <Ring value={f.waterCups} max={f.waterGoal} color="var(--blue-600)">
@@ -784,7 +803,9 @@ export function Fit({ me }) {
           <Ring value={f.sleepHrs} max={8} color="var(--purple-600)">
             <Icon name="moon" size={20} /><b>{f.sleepHrs}h</b>
           </Ring>
-          <div><small>Sleep</small><strong>{f.sleepHrs} hours</strong><span>Goal 7–9 hours</span></div>
+          <div><small>Sleep</small><strong>{f.sleepHrs} hours</strong><span>Goal 7–9 hours</span>
+            <LogNumber key={f.sleepHrs} label="sleep hours" unit="hours" step="0.5" value={f.sleepHrs} onSave={(n) => setFit('sleepHrs', Math.min(24, n))} />
+          </div>
         </div>
       </div>
 
@@ -811,11 +832,15 @@ export function Fit({ me }) {
             <div><small>BMI</small><b>{b || '–'}</b></div>
           </div>
           {bmiLabel && <span className={`chip chip-${bmiLabel[1]}`}>{bmiLabel[0]}</span>}
-          <h3 style={{ marginTop: 22 }}>Small goals</h3>
+          <h3 style={{ marginTop: 22 }}>Today's goals</h3>
           <ul className="goal-list">
-            <li><Icon name="check" size={16} stroke={3} /> Walk 10 minutes after lunch</li>
-            <li><Icon name="check" size={16} stroke={3} /> 8 cups of water</li>
-            <li className="todo"><span /> In bed by 11pm</li>
+            {[
+              [`${f.stepGoal.toLocaleString()} steps`, f.steps >= f.stepGoal],
+              [`${f.waterGoal} cups of water`, f.waterCups >= f.waterGoal],
+              ['7+ hours of sleep', f.sleepHrs >= 7],
+            ].map(([label, ok]) => (
+              <li key={label} className={ok ? '' : 'todo'}>{ok ? <Icon name="check" size={16} stroke={3} /> : <span />} {label}</li>
+            ))}
           </ul>
         </div>
       </div>

@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import Icon from '../components/Icon.jsx'
-import { api, isDemo } from '../api/index.js'
-import { DEMO_NAFDAC_SAMPLES } from '../api/mock.js'
+import { api } from '../api/index.js'
 import { SectionHead } from './Screens.jsx'
 
 // TendVerify: check a medicine's NAFDAC registration number.
@@ -98,14 +97,6 @@ export default function Verify() {
               </div>
             </label>
             {touched && input && !valid && <p className="form-error"><Icon name="alert" size={16} /> That doesn't look like a NAFDAC number. It is usually 2 characters, a dash, then 4 digits, like A4-1234 or 04-1234.</p>}
-            {isDemo && (
-              <p className="verify-samples">
-                <span className="demo-tag">Demo</span> Try:{' '}
-                {DEMO_NAFDAC_SAMPLES.map((s) => (
-                  <button type="button" key={s} className="link-btn" onClick={() => run(s)}>{s}</button>
-                ))}
-              </p>
-            )}
           </form>
 
           {verify.isPending && (

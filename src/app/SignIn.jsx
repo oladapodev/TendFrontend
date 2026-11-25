@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate, useLocation as useRouterLocation, useNavigate } from 'react-router'
 import { useMutation } from '@tanstack/react-query'
 import Icon, { Logo } from '../components/Icon.jsx'
-import { api, isDemo } from '../api/index.js'
+import { api } from '../api/index.js'
 import { useAuth } from './auth.jsx'
 import './app.css'
 
@@ -48,12 +48,12 @@ export default function SignIn({ mode = 'signin' }) {
   // Carry the typed number (and where to return after sign-in) when switching between sign in and sign up.
   const switchState = { ...loc.state, phone }
   const [step, setStep] = useState('phone')
-  const [demoCode, setDemoCode] = useState(null)
+  const [devCode, setDevCode] = useState(null)
 
   const request = useMutation({
     mutationFn: () => api.auth.requestOtp(toE164(phone), mode),
     onSuccess: (r) => {
-      setDemoCode(r?.demoCode || null)
+      setDevCode(r?.devCode || null)
       setStep('code')
     },
   })
@@ -76,9 +76,6 @@ export default function SignIn({ mode = 'signin' }) {
       </aside>
       <section className="onb-main">
         <div className="onb-card">
-          {isDemo && (
-            <p className="demo-banner"><Icon name="info" size={16} /> Demo mode: no backend is connected. No SMS is sent; the code is shown below.</p>
-          )}
           {step === 'phone' ? (
             <>
               <span className="onb-step">{t.step}</span>
@@ -121,7 +118,7 @@ export default function SignIn({ mode = 'signin' }) {
               <span className="onb-step">Check your messages</span>
               <h1>Enter the 6-digit code</h1>
               <p className="onb-hint">Sent to {toE164(phone)}. <button className="link-btn" onClick={() => { setStep('phone'); setCode(''); verify.reset() }}>Change number</button></p>
-              {demoCode && <p className="demo-code">Demo code: <b>{demoCode}</b></p>}
+              {devCode && <p className="demo-code">SMS isn't set up on this server yet. Your code: <b>{devCode}</b></p>}
               <form
                 className="onb-form"
                 onSubmit={(e) => {

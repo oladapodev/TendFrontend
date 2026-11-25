@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import Icon from '../components/Icon.jsx'
-import { api, isDemo } from '../api/index.js'
+import { api } from '../api/index.js'
 import { useLocation } from './location.jsx'
 
 // Status labels. "Calling" is never shown as "answered"; failures are shown, not hidden (slide 06).
@@ -18,7 +18,8 @@ const STATUS = {
   sms_delivered: ['Text delivered', 'blue'],
   sms_failed: ['Text failed', 'red'],
   skipped: ['Not contacted', 'grey'],
-  demo_only: ['Demo alert only', 'grey'],
+  no_phone: ['No phone number saved', 'red'],
+  not_sent: ['Not sent: calling and SMS are not set up on the server', 'red'],
 }
 const KIND_ICON = { hospital: 'hospital', contact: 'user', helpers: 'users' }
 const HELP_CONFIRMED = ['confirmed', 'answered']
@@ -130,7 +131,7 @@ export default function Sos({ me, onClose }) {
           <div className="sos-dial-num"><b key={left}>{left}</b><small>seconds</small></div>
         </div>
         <h2>Starting the call for help</h2>
-        <p>We'll contact your hospital, your circle and nearby helpers{share.location ? ', and share your location' : ''}.</p>
+        <p>We'll call and text your hospital and your emergency contacts{share.location ? ', and share your location' : ''}.</p>
         <div className="sos-count-actions">
           <button className="btn btn-white sos-cancel" autoFocus onClick={onClose}><Icon name="x" size={20} /> Cancel</button>
           <button className="btn sos-now" onClick={() => setLeft(0)}>Send now</button>
@@ -175,7 +176,7 @@ export default function Sos({ me, onClose }) {
       <div className="sos-live-inner">
         <header className="sos-live-head">
           {ended ? <span className="chip chip-grey">Incident ended</span> : <span className="chip chip-red"><span className="dot dot-red" /> Incident live · {mm}:{ss}</span>}
-          {isDemo && <span className="demo-tag">Demo incident: nobody is being contacted</span>}
+          {incident && incident.live === false && <span className="chip chip-red">Nobody is being contacted automatically. Call 112 now.</span>}
         </header>
 
         <div className="sos-hero-msg" aria-live="polite">
@@ -200,7 +201,10 @@ export default function Sos({ me, onClose }) {
                   </div>
                 )
               })}
-              {targets.length <= 2 && (
+              {targets.length === 0 && (
+                <p className="muted">No hospital or contacts to reach. Add emergency contacts and a trusted hospital, and call 112 now.</p>
+              )}
+              {targets.length > 0 && targets.length <= 2 && (
                 <p className="muted">Tip: add more emergency contacts so more people can be reached.</p>
               )}
             </div>
