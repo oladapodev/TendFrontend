@@ -4,5 +4,6 @@ import { createHttpApi } from './http.js'
 // Default `/api` works behind the Caddy web container and the Vite dev proxy (vite.config.js).
 const url = import.meta.env.VITE_API_URL || '/api'
 
+export const isDemo = false
 export const api = createHttpApi(url)
 export { ApiError } from './http.js'

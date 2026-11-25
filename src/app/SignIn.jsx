@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useLocation as useRouterLocation, useNavigate } from 'react-router'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Icon, { Logo } from '../components/Icon.jsx'
 import { api } from '../api/index.js'
 import { useAuth } from './auth.jsx'
@@ -41,6 +41,7 @@ const COPY = {
 export default function SignIn({ mode = 'signin' }) {
   const t = COPY[mode]
   const { signedIn } = useAuth()
+  const qc = useQueryClient()
   const nav = useNavigate()
   const loc = useRouterLocation()
   const [phone, setPhone] = useState(() => loc.state?.phone || '')
@@ -59,7 +60,11 @@ export default function SignIn({ mode = 'signin' }) {
   })
   const verify = useMutation({
     mutationFn: () => api.auth.verifyOtp(toE164(phone), code.trim()),
-    onSuccess: () => nav(loc.state?.from || '/app', { replace: true }),
+    onSuccess: (r) => {
+      qc.clear()
+      if (r.me) qc.setQueryData(['me'], r.me)
+      nav('/app', { replace: true })
+    },
   })
 
   if (signedIn) return <Navigate to="/app" replace />

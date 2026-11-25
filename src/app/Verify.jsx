@@ -23,6 +23,7 @@ export function normaliseNafdac(raw) {
 }
 
 const STATUS = {
+  pending: { tone: 'amber', icon: 'alert', title: 'Registration needs review', text: 'The source does not list this registration as active. Ask a pharmacist to confirm its current status.' },
   registered: { tone: 'green', icon: 'shield', title: 'Registered with NAFDAC', text: 'This number matches a registered product. Check that the details below match your pack exactly.' },
   expired: { tone: 'amber', icon: 'alert', title: 'Registration has expired', text: 'This product was registered, but the registration is no longer current. Ask your pharmacist before using it.' },
   suspended: { tone: 'red', icon: 'alert', title: 'Registration suspended or withdrawn', text: 'Do not use this product. Return it to where you bought it and report it to NAFDAC.' },
