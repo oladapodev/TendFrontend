@@ -11,9 +11,17 @@ export const bmi = (p) => {
   return (w / (h * h)).toFixed(1)
 }
 
+// Name, age and phone (from sign-in) are required; the rest can be skipped.
+export const validName = (n) => (n || '').trim().length > 1
+export const validAge = (a) => {
+  const n = Number(a)
+  return a !== '' && a != null && Number.isInteger(n) && n > 0 && n < 120
+}
+export const profileComplete = (me) => validName(me.profile?.name) && validAge(me.profile?.age) && !!me.phone
+
 const steps = [
-  { key: 'name', label: 'Your name', title: "What's your name?", hint: 'This is how TendAI and your emergency contacts will know you.' },
-  { key: 'age', label: 'Age', title: 'How old are you?', hint: 'Age helps responders and the hospital prepare.' },
+  { key: 'name', label: 'Your name', required: true, title: "What's your name?", hint: 'This is how TendAI and your emergency contacts will know you.' },
+  { key: 'age', label: 'Age', required: true, title: 'How old are you?', hint: 'Age helps responders and the hospital prepare.' },
   { key: 'body', label: 'Height & weight', title: 'Your height and weight', hint: 'Used for Fit Health and to share with responders if you allow it.' },
   { key: 'sex', label: 'Sex', title: 'Sex (optional)', hint: 'Some care decisions depend on it. You can skip this.' },
 ]
@@ -44,14 +52,19 @@ export function Onboarding({ me }) {
   const [p, setP] = useState(me.profile)
   const s = steps[i]
   const set = (k) => (e) => setP({ ...p, [k]: e.target.value })
-  const age = Number(p.age)
-  const valid =
-    s.key === 'name' ? p.name.trim().length > 1 :
-    s.key === 'age' ? p.age === '' || (age > 0 && age < 120) :
-    true
+  const valid = s.key === 'name' ? validName(p.name) : s.key === 'age' ? validAge(p.age) : true
+  const [touched, setTouched] = useState(false)
   const next = () => {
-    if (i < steps.length - 1) setI(i + 1)
-    else save.mutate({ profile: { ...p, name: p.name.trim() }, onboarded: true })
+    setTouched(false)
+    if (i < steps.length - 1) return setI(i + 1)
+    // Final check: jump back to the first required step that is missing.
+    const missing = steps.findIndex((st) => (st.key === 'name' && !validName(p.name)) || (st.key === 'age' && !validAge(p.age)))
+    if (missing >= 0) {
+      setI(missing)
+      setTouched(true)
+      return
+    }
+    save.mutate({ profile: { ...p, name: p.name.trim(), age: String(Number(p.age)) }, onboarded: true })
   }
   const b = bmi(p)
 
@@ -67,7 +80,7 @@ export function Onboarding({ me }) {
             {steps.map((st, n) => (
               <li key={st.key} className={n < i ? 'done' : n === i ? 'now' : ''}>
                 <span>{n < i ? <Icon name="check" size={14} stroke={3} /> : n + 1}</span>
-                {st.label}
+                {st.label}{st.required && <em className="req-tag">Required</em>}
               </li>
             ))}
           </ol>
@@ -88,14 +101,17 @@ export function Onboarding({ me }) {
         {s.key === 'name' && (
           <label className="field">
             <span>Full name</span>
-            <input className="input input-lg" autoFocus autoComplete="name" placeholder="e.g. Victor Adeyemi" value={p.name} onChange={set('name')} />
+            <input className="input input-lg" autoFocus required aria-required="true" autoComplete="name" placeholder="e.g. Victor Adeyemi" value={p.name} onChange={set('name')} onBlur={() => setTouched(true)} />
           </label>
         )}
         {s.key === 'age' && (
           <label className="field">
             <span>Age in years</span>
-            <input className="input input-lg" autoFocus type="number" min="1" max="119" placeholder="e.g. 28" value={p.age} onChange={set('age')} />
+            <input className="input input-lg" autoFocus required aria-required="true" type="number" inputMode="numeric" min="1" max="119" step="1" placeholder="e.g. 28" value={p.age} onChange={set('age')} onBlur={() => setTouched(true)} />
           </label>
+        )}
+        {s.required && touched && !valid && (
+          <p className="form-error"><Icon name="alert" size={16} /> {s.key === 'name' ? 'Your name is required.' : 'Enter your age in whole years (1–119).'}</p>
         )}
         {s.key === 'body' && (
           <>
@@ -129,7 +145,7 @@ export function Onboarding({ me }) {
             <button type="button" className="btn btn-ghost" onClick={() => setI(i - 1)}><Icon name="chevronLeft" size={18} /> Back</button>
           ) : <span />}
           <div className="onb-actions-right">
-            {s.key !== 'name' && <button type="button" className="link-btn" onClick={next}>Skip</button>}
+            {!s.required && <button type="button" className="link-btn" onClick={next}>Skip</button>}
             <button className="btn btn-primary" disabled={!valid || save.isPending}>
               {i === steps.length - 1 ? (save.isPending ? 'Saving…' : 'Finish') : 'Continue'} <Icon name="arrowRight" size={18} />
             </button>
