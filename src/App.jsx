@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { Navigate, Route, Routes, useLocation as useRouterLocation } from 'react-router'
+import { Navigate, Route, Routes, useLocation as useRouterLocation, useNavigate } from 'react-router'
 import Landing from './landing/Landing.jsx'
 import { Spinner } from './components/QueryState.jsx'
 import { AuthProvider, useAuth } from './app/auth.jsx'
@@ -16,6 +16,18 @@ function ScrollToTop() {
   return null
 }
 
+function LegacyHashRedirect() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    const hash = window.location.hash
+    if (hash.startsWith('#/app')) {
+      const path = hash.replace(/^#/, '')
+      navigate(path, { replace: true })
+    }
+  }, [navigate])
+  return null
+}
+
 function RequireAuth({ children }) {
   const { signedIn } = useAuth()
   const loc = useRouterLocation()
@@ -27,6 +39,7 @@ export default function App() {
   return (
     <AuthProvider>
       <ScrollToTop />
+      <LegacyHashRedirect />
       <Suspense fallback={<div className="gate"><Spinner /></div>}>
         <Routes>
           <Route path="/" element={<Landing />} />
