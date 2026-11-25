@@ -215,7 +215,7 @@ function Shell({ me }) {
       </div>
 
       <nav className="bottombar" aria-label="Main">
-        {[byId.home, byId.locator, byId.agent, byId.medical, byId.fit, byId.circle, byId.travel].map((s) => (
+        {[byId.home, byId.locator, byId.agent, byId.medical, byId.fit].map((s) => (
           <NavLink key={s.id} to={to(s)} end={s.id === 'home'} className={({ isActive }) => `bb-item ${isActive ? 'is-active' : ''} ${s.id === 'agent' ? 'bb-agent' : ''}`}>
             <span className="bb-ico"><Icon name={s.icon} size={s.id === 'agent' ? 26 : 22} /></span>
             <span>{s.short}</span>
