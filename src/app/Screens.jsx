@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import Icon from '../components/Icon.jsx'
 import QueryState, { Spinner } from '../components/QueryState.jsx'
 import { useContacts, useSaveContact, useDeleteContact, usePlaces, useUpdateMe, useAnalyseDiet, useFacilities } from './data.js'
@@ -115,84 +115,298 @@ export function Home({ me, onSos }) {
   const places = usePlaces()
   const loc = useLocation()
   const facilities = useFacilities(loc.center)
+  const updateMe = useUpdateMe()
   const m = me.medical
   const nearest = facilities.data?.[0]
   const nContacts = contacts.data?.length
+  const delay = me.settings?.sosDelay || 5
+
   const tiles = [
     { id: 'circle', icon: 'users', tone: 'green', label: 'Emergency contacts', meta: nContacts == null ? '…' : nContacts ? `${nContacts} in your circle` : 'Add your first contact' },
     { id: 'medical', icon: 'drop', tone: 'red', label: 'Medical ID', meta: m.bloodGroup ? `${m.bloodGroup} · Genotype ${m.genotype || '–'}` : 'Add blood group' },
     { id: 'locator', icon: 'map', tone: 'blue', label: 'Help Locator', meta: nearest ? `Nearest care ${nearest.distanceKm} km` : 'Find care near you' },
+    { id: 'verify', icon: 'pill', tone: 'blue', label: 'Verify medicine', meta: 'Check a NAFDAC number' },
     { id: 'diet', icon: 'apple', tone: 'amber', label: 'Diet', meta: me.dietResult ? 'Plan ready' : "Log today's meals" },
     { id: 'fit', icon: 'activity', tone: 'purple', label: 'Fit Health', meta: `${me.fit.steps.toLocaleString()} steps today` },
-    { id: 'cpr', icon: 'cpr', tone: 'red', label: 'CPR guide', meta: 'Step by step' },
+    { id: 'emergencies', icon: 'firstaid', tone: 'red', label: 'Common emergencies', meta: 'CPR, choking, burns and more' },
     { id: 'agent', icon: 'chat', tone: 'green', label: 'Talk to TendTalk', meta: 'Ask a health question' },
   ]
   const checks = [
-    ['Profile', !!me.profile.name],
-    ['Location on', loc.status === 'live'],
-    ['2+ contacts', (nContacts || 0) >= 2],
-    ['Medical ID', !!m.bloodGroup],
-    ['Trusted hospital', (places.data?.length || 0) > 0],
+    { label: 'Name & profile', ok: !!me.profile.name, link: '/app/settings' },
+    { label: 'Device location', ok: loc.status === 'live', link: '/app/settings' },
+    { label: '2+ emergency contacts', ok: (nContacts || 0) >= 2, link: '/app/circle' },
+    { label: 'Medical ID (Blood group)', ok: !!m.bloodGroup, link: '/app/medical' },
+    { label: 'Trusted hospital', ok: (places.data?.length || 0) > 0, link: '/app/locator' },
   ]
-  const done = checks.filter((c) => c[1]).length
+  const done = checks.filter((c) => c.ok).length
+  const nextStep = checks.find((c) => !c.ok)
+
+  const quickAddWater = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const current = me.fit?.waterCups || 0
+    updateMe.mutate({ fit: { ...me.fit, waterCups: current + 1 } })
+  }
 
   return (
     <div className="home">
-      <section className="sos-hero">
-        <div className="sos-hero-copy">
-          <span className="chip chip-red"><Icon name="shield" size={14} /> TendSOS</span>
-          <h2>Need urgent help?</h2>
-          <p>Press the button to start the workflow. You'll have <strong>{me.settings.sosDelay} seconds</strong> to cancel before we contact your hospital, your circle and opted-in helpers.</p>
-          <div className="sos-hero-actions">
-            <a className="btn btn-ghost btn-sm" href="tel:112"><Icon name="phone" size={16} /> Call 112 directly</a>
-            <Link className="link-btn" to="/app/settings">Change countdown</Link>
-          </div>
-        </div>
-        <button className="sos-big" onClick={onSos} aria-label="Start emergency SOS">
-          <span className="sos-big-ring" />
-          <span className="sos-big-core">
-            <strong>SOS</strong>
-            <small>Press for help</small>
+      {/* 1. TOP READINESS & QUICK SAFETY STATUS */}
+      <section className="safety-strip card" aria-label="Safety status">
+        <div className="safety-strip-left">
+          <span className={`safety-badge ${done === checks.length ? 'is-complete' : 'is-pending'}`}>
+            <Icon name={done === checks.length ? 'check' : 'shield'} size={18} stroke={done === checks.length ? 3 : 2} />
+            <span>{done === checks.length ? 'Fully Protected' : `${done} of ${checks.length} safety steps ready`}</span>
           </span>
-        </button>
+          {nextStep ? (
+            <Link to={nextStep.link} className="safety-next-link">
+              <span>Next recommended step:</span>
+              <strong>{nextStep.label} <Icon name="arrowRight" size={14} /></strong>
+            </Link>
+          ) : (
+            <span className="safety-all-good">All emergency protections active</span>
+          )}
+        </div>
+        <div className="safety-quick-chips">
+          <Link to="/app/locator" className="chip chip-grey" title="Your current location">
+            <Icon name="pin" size={13} /> {loc.status === 'live' ? 'Live GPS' : 'Central Abeokuta'}
+          </Link>
+          <Link to="/app/circle" className="chip chip-green" title="Emergency contacts">
+            <Icon name="users" size={13} /> {nContacts ? `${nContacts} Contact${nContacts === 1 ? '' : 's'}` : 'Add contacts'}
+          </Link>
+          <Link to="/app/medical" className="chip chip-red" title="Medical ID">
+            <Icon name="drop" size={13} /> {m.bloodGroup ? `${m.bloodGroup} · ${m.genotype || 'AA'}` : 'Medical ID'}
+          </Link>
+        </div>
       </section>
 
-      <div className="home-grid">
-        <section>
-          <h3 className="h-label">Your tools</h3>
-          <div className="tiles">
-            {tiles.map((t) => (
-              <Link key={t.id} to={`/app/${t.id}`} className="tile">
-                <span className={`tile-ico tone-${t.tone}`}><Icon name={t.icon} size={28} stroke={1.8} /></span>
-                <strong>{t.label}</strong>
-                <small>{t.meta}</small>
-              </Link>
-            ))}
+      {/* 2. THE EMERGENCY SOS HERO CARD */}
+      <section className="sos-hero" aria-label="Emergency help button">
+        <div className="sos-hero-copy">
+          <div className="sos-hero-eyebrow">
+            <span className="chip chip-red"><Icon name="shield" size={14} /> Emergency Helpline</span>
+            <span className="sos-live-pill"><span className="pulse-dot" /> 24/7 Response Active</span>
           </div>
-        </section>
+          <h2>In an emergency? Press SOS.</h2>
+          <p className="sos-hero-desc">
+            One touch immediately starts the emergency response: contacting your nearest hospital, notifying your family with your live location, and alerting local helpers.
+          </p>
+          <div className="sos-hero-timer-note">
+            <Icon name="info" size={15} />
+            <span>Accidental touch? You have <strong>{delay} seconds</strong> to cancel before alerts go out.</span>
+          </div>
+          <div className="sos-hero-actions">
+            <a className="btn btn-call-emergency" href="tel:112">
+              <Icon name="phone" size={18} />
+              <span>Call 112 directly</span>
+            </a>
+            <Link className="btn btn-ghost btn-sm" to="/app/settings">
+              <Icon name="clock" size={16} /> Change cancel timer ({delay}s)
+            </Link>
+          </div>
+        </div>
 
-        <aside className="home-side">
-          <div className="card">
-            <div className="ready-head">
-              <h3>Emergency readiness</h3>
-              <span className="ready-score">{done}/{checks.length}</span>
+        <div className="sos-btn-container">
+          <button className="sos-big" onClick={onSos} aria-label="Start emergency SOS">
+            <span className="sos-big-ring" />
+            <span className="sos-big-ring ring-secondary" />
+            <span className="sos-big-core">
+              <strong>SOS</strong>
+              <small>Press for help</small>
+            </span>
+          </button>
+        </div>
+      </section>
+
+      {/* 3. URGENT CARE & PRIMARY LIFELINE CARDS */}
+      <section className="home-section" aria-label="Emergency care tools">
+        <div className="section-title-row">
+          <div>
+            <h3 className="section-title">Emergency Care &amp; Lifelines</h3>
+            <p className="section-subtitle">Core services ready when you or someone around you needs immediate assistance.</p>
+          </div>
+        </div>
+
+        <div className="primary-cards-grid">
+          {/* Card 1: Nearest Hospital */}
+          <Link to="/app/locator" className="service-card tone-blue">
+            <div className="service-card-top">
+              <span className="service-icon"><Icon name="hospital" size={26} /></span>
+              <span className="service-chip chip chip-blue">24h Emergency</span>
             </div>
-            <div className="bar"><span style={{ width: `${(done / checks.length) * 100}%` }} /></div>
-            <ul className="ready-list">
-              {checks.map(([l, ok]) => (
-                <li key={l} className={ok ? 'ok' : ''}>
-                  <span>{ok ? <Icon name="check" size={14} stroke={3} /> : null}</span>{l}
-                </li>
-              ))}
-            </ul>
+            <div className="service-card-content">
+              <h4>Nearest Hospital</h4>
+              <strong className="service-main-text">{nearest?.short || nearest?.name || 'Federal Medical Centre'}</strong>
+              <p className="service-desc">
+                {nearest ? `${nearest.distanceKm} km away · ${nearest.open || '24 hours open'}` : 'Idi-Aba, Abeokuta · 1.8 km away'}
+              </p>
+            </div>
+            <div className="service-card-footer">
+              <span>View map &amp; phone numbers</span>
+              <Icon name="arrowRight" size={16} />
+            </div>
+          </Link>
+
+          {/* Card 2: Emergency Contacts */}
+          <Link to="/app/circle" className="service-card tone-green">
+            <div className="service-card-top">
+              <span className="service-icon"><Icon name="users" size={26} /></span>
+              <span className="service-chip chip chip-green">TendCircle</span>
+            </div>
+            <div className="service-card-content">
+              <h4>Emergency Contacts</h4>
+              <strong className="service-main-text">
+                {nContacts ? `${nContacts} people in your circle` : 'No contacts added yet'}
+              </strong>
+              <p className="service-desc">
+                {nContacts ? 'Called and sent SMS with your live location during an SOS.' : 'Add trusted family, friends or your doctor to be notified.'}
+              </p>
+            </div>
+            <div className="service-card-footer">
+              <span>{nContacts ? 'Manage your circle' : '+ Add someone you trust'}</span>
+              <Icon name="arrowRight" size={16} />
+            </div>
+          </Link>
+
+          {/* Card 3: Medical ID */}
+          <Link to="/app/medical" className="service-card tone-red">
+            <div className="service-card-top">
+              <span className="service-icon"><Icon name="drop" size={26} /></span>
+              <span className="service-chip chip chip-red">Responder ID</span>
+            </div>
+            <div className="service-card-content">
+              <h4>Medical Information</h4>
+              <strong className="service-main-text">
+                {m.bloodGroup ? `Blood ${m.bloodGroup} · Genotype ${m.genotype || '–'}` : 'Blood group not set'}
+              </strong>
+              <p className="service-desc">
+                {m.allergies?.length ? `Allergies: ${m.allergies.slice(0, 2).join(', ')}${m.allergies.length > 2 ? '…' : ''}` : 'Shown to paramedics and emergency doctors on arrival.'}
+              </p>
+            </div>
+            <div className="service-card-footer">
+              <span>View or update Medical ID</span>
+              <Icon name="arrowRight" size={16} />
+            </div>
+          </Link>
+
+          {/* Card 4: CPR Guide */}
+          <Link to="/app/cpr" className="service-card tone-amber">
+            <div className="service-card-top">
+              <span className="service-icon"><Icon name="cpr" size={26} stroke={1.8} /></span>
+              <span className="service-chip chip chip-amber">First Aid</span>
+            </div>
+            <div className="service-card-content">
+              <h4>CPR Life-Saver Guide</h4>
+              <strong className="service-main-text">Hands-Only CPR</strong>
+              <p className="service-desc">
+                Step-by-step adult chest compressions at 100–120 bpm until help arrives.
+              </p>
+            </div>
+            <div className="service-card-footer">
+              <span>Open CPR guide &amp; rhythm</span>
+              <Icon name="arrowRight" size={16} />
+            </div>
+          </Link>
+        </div>
+      </section>
+
+      {/* 4. EVERYDAY HEALTH & COMPANION SECTION */}
+      <section className="home-section" aria-label="Everyday health companion">
+        <div className="section-title-row">
+          <div>
+            <h3 className="section-title">Everyday Health &amp; Prevention</h3>
+            <p className="section-subtitle">Simple, easy-to-use tools to stay healthy, eat well, and prepare for medical visits.</p>
           </div>
-          <div className="card card-green">
-            <Icon name="sparkle" size={20} />
-            <p><strong>Tip:</strong> add a hospital you trust in Help Locator. It will be called first during an SOS.</p>
-            <Link className="btn btn-white btn-sm" to="/app/locator">Open Help Locator</Link>
-          </div>
-        </aside>
-      </div>
+        </div>
+
+        <div className="companion-grid">
+          {/* TendTalk AI Assistant Prompt Card */}
+          <article className="ai-companion-card">
+            <div className="ai-companion-header">
+              <span className="ai-badge-icon"><Icon name="sparkle" size={22} /></span>
+              <div>
+                <h4>TendTalk Health Assistant</h4>
+                <p>Have a question or symptom? Ask in simple words, just like speaking to a clinic nurse.</p>
+              </div>
+            </div>
+            <div className="ai-quick-prompts">
+              <span className="prompt-label">Common questions:</span>
+              <div className="prompt-chips">
+                <Link to="/app/agent" className="prompt-pill">
+                  <Icon name="chat" size={14} /> What should I do if someone faints?
+                </Link>
+                <Link to="/app/agent" className="prompt-pill">
+                  <Icon name="chat" size={14} /> Explain sickle cell genotype in simple words
+                </Link>
+                <Link to="/app/agent" className="prompt-pill">
+                  <Icon name="chat" size={14} /> Foods that help lower blood pressure
+                </Link>
+              </div>
+            </div>
+            <div className="ai-companion-foot">
+              <Link to="/app/agent" className="btn btn-primary btn-sm">
+                <span>Start conversation</span>
+                <Icon name="arrowRight" size={16} />
+              </Link>
+              <small className="ai-disclaimer">AI provides guidance, not diagnosis.</small>
+            </div>
+          </article>
+
+          {/* Diet & Nutrition Card */}
+          <article className="companion-tile">
+            <div className="companion-tile-head">
+              <span className="tile-ico tone-amber"><Icon name="apple" size={24} /></span>
+              <span className="chip chip-amber">Nigerian Diet</span>
+            </div>
+            <h4>Daily Meal Guidance</h4>
+            <p className="companion-tile-desc">
+              {me.dietResult
+                ? 'Your meal plan is active: balanced starch with leafy greens (ugwu, ewedu) and protein.'
+                : 'Log common Nigerian meals (eba, rice, beans, yam) to get personalized portion & fruit advice.'}
+            </p>
+            <Link to="/app/diet" className="companion-tile-btn">
+              <span>{me.dietResult ? 'View diet plan' : 'Log today’s meals'}</span>
+              <Icon name="arrowRight" size={16} />
+            </Link>
+          </article>
+
+          {/* Fit & Hydration Card */}
+          <article className="companion-tile">
+            <div className="companion-tile-head">
+              <span className="tile-ico tone-purple"><Icon name="activity" size={24} /></span>
+              <span className="chip chip-purple">Daily Activity</span>
+            </div>
+            <h4>Movement &amp; Hydration</h4>
+            <div className="fit-mini-stats">
+              <div className="fit-stat-row">
+                <span><Icon name="footprints" size={15} /> Steps today</span>
+                <strong>{me.fit.steps.toLocaleString()} / {me.fit.stepGoal.toLocaleString()}</strong>
+              </div>
+              <div className="fit-bar-small">
+                <span style={{ width: `${Math.min(100, Math.round((me.fit.steps / me.fit.stepGoal) * 100))}%` }} />
+              </div>
+              <div className="water-quick-row">
+                <div>
+                  <small><Icon name="water" size={14} /> Water intake</small>
+                  <strong>{me.fit.waterCups || 0} / {me.fit.waterGoal || 8} cups</strong>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm quick-water-btn"
+                  onClick={quickAddWater}
+                  title="Log 1 cup of water"
+                  aria-label="Add 1 cup of water"
+                >
+                  <Icon name="plus" size={14} stroke={3} /> +1 Cup
+                </button>
+              </div>
+            </div>
+            <Link to="/app/fit" className="companion-tile-btn" style={{ marginTop: 12 }}>
+              <span>Open Fit Health</span>
+              <Icon name="arrowRight" size={16} />
+            </Link>
+          </article>
+        </div>
+      </section>
     </div>
   )
 }
@@ -593,38 +807,6 @@ export function Fit({ me }) {
             <li className="todo"><span /> In bed by 11pm</li>
           </ul>
         </div>
-      </div>
-    </div>
-  )
-}
-
-/* ---------- CPR guide ---------- */
-
-export function Cpr() {
-  const steps = [
-    ['Check it is safe', 'Make sure you and the person are not in danger.'],
-    ['Check for a response', 'Tap their shoulders and shout. Look for normal breathing for no more than 10 seconds.'],
-    ['Call for help', 'Press SOS or call 112. Put the phone on speaker.'],
-    ['Push hard and fast', 'Centre of the chest, 5–6 cm deep, 100–120 pushes a minute. Let the chest rise between pushes.'],
-    ['Keep going', 'Do not stop until help arrives or the person starts breathing normally.'],
-  ]
-  return (
-    <div className="page">
-      <SectionHead icon="cpr" tone="red" title="CPR guide" text="Hands-only CPR for adults, step by step. Images and the full guide are coming from the team." />
-      <div className="cpr-layout">
-        <ol className="cpr-steps">
-          {steps.map(([t, d], n) => (
-            <li key={t} className="card">
-              <span className="cpr-n">{n + 1}</span>
-              <div><strong>{t}</strong><p>{d}</p></div>
-            </li>
-          ))}
-        </ol>
-        <aside className="card cpr-aside">
-          <div className="cpr-img"><Icon name="cpr" size={64} stroke={1.2} /><small>CPR illustration coming soon</small></div>
-          <a className="btn btn-danger btn-block" href="tel:112"><Icon name="phone" size={18} /> Call 112</a>
-          <p className="note" style={{ marginTop: 12 }}><Icon name="info" size={16} /> Content to be checked by a clinician before launch.</p>
-        </aside>
       </div>
     </div>
   )

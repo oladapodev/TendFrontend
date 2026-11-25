@@ -40,7 +40,8 @@ Rules: red is never used for decoration, only for SOS and danger. Every status u
   ├─ home              SOS button + tile grid + bottom nav
   │   ├─ circle        Emergency contacts (TendCircle): name, phone, relationship
   │   ├─ medical       Emergency info: blood group, genotype, allergies, known infections, conditions, meds
-  │   ├─ diet          Daily meals dialog → AI recommendations (fruit, supplements, meal timing)
+  │   ├─ verify        Verify medicine: NAFDAC registration number check (TendVerify)
+  ├─ diet          Daily meals dialog → AI recommendations (fruit, supplements, meal timing)
   │   ├─ fit           Fit Health: steps, calories, water, sleep, weight/BMI
   │   ├─ locator       Help Locator: map + nearby hospitals + detail sheet (call / directions) + add own
   │   └─ cpr           CPR guide (assets coming from the team)
@@ -85,6 +86,8 @@ Map: **Leaflet + OpenStreetMap tiles** (matches slide 05). Facilities come from 
 ## 6. API contract (proposed, to agree with the backend team)
 
 ```
+POST /auth/otp                { phone, mode: signup|signin } -> 200 sent | 404 no account (signin) | 409 exists (signup)
+POST /auth/verify             { phone, code } -> { token, me }
 POST /profile                 { name, age, heightCm, weightKg, sex? }
 PUT  /profile/medical         { bloodGroup, genotype, allergies[], infections[], conditions[], medications[] }
 GET  /contacts  POST /contacts  DELETE /contacts/:id   { name, phone, relationship, notifyBy: [call|sms|whatsapp] }
@@ -95,7 +98,13 @@ GET  /incidents/:id/stream    SSE: { target, channel, status, at }
 POST /incidents/:id/cancel
 POST /diet/analyse            { meals: {breakfast, lunch, dinner, snacks} } -> { recommendations[], frequency, note }
 POST /agent/chat              { messages[] } -> streamed reply
+GET  /medicines/verify?nafdac=A4-1234
+                              -> { nafdacNo, status: registered|expired|suspended|not_found,
+                                   name, activeIngredients[], form, category, holder, manufacturer,
+                                   approvedOn, expiresOn, alert?, checkedAt, source }
 ```
+
+**Verify medicine (TendVerify):** the backend looks up the number in NAFDAC's registration records (e.g. the NAFDAC Greenbook) and caches results. The screen always says that a registered number does not prove a pack is genuine (slide 14).
 
 ## 7. Build order (hackathon timeline)
 

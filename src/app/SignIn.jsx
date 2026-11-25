@@ -15,17 +15,43 @@ export function toE164(raw) {
 }
 const validNg = (raw) => /^\+234[789][01]\d{8}$/.test(toE164(raw))
 
-export default function SignIn() {
+const COPY = {
+  signin: {
+    step: 'Sign in',
+    title: 'Welcome back',
+    hint: "Enter the phone number you signed up with. We'll text you a 6-digit code.",
+    side: 'Sign in with your phone number. We use it to identify you and as the call-back number during an SOS.',
+    button: 'Sign in',
+    switchText: 'New to TendAI?',
+    switchLink: 'Create an account',
+    switchTo: '/signup',
+  },
+  signup: {
+    step: 'Create your account',
+    title: "What's your phone number?",
+    hint: "We'll text you a 6-digit code to confirm it's yours. No password needed.",
+    side: 'Create your account with just your phone number. It becomes your call-back number during an SOS.',
+    button: 'Create account',
+    switchText: 'Already have an account?',
+    switchLink: 'Sign in',
+    switchTo: '/signin',
+  },
+}
+
+export default function SignIn({ mode = 'signin' }) {
+  const t = COPY[mode]
   const { signedIn } = useAuth()
   const nav = useNavigate()
   const loc = useRouterLocation()
-  const [phone, setPhone] = useState('')
+  const [phone, setPhone] = useState(() => loc.state?.phone || '')
   const [code, setCode] = useState('')
+  // Carry the typed number (and where to return after sign-in) when switching between sign in and sign up.
+  const switchState = { ...loc.state, phone }
   const [step, setStep] = useState('phone')
   const [demoCode, setDemoCode] = useState(null)
 
   const request = useMutation({
-    mutationFn: () => api.auth.requestOtp(toE164(phone)),
+    mutationFn: () => api.auth.requestOtp(toE164(phone), mode),
     onSuccess: (r) => {
       setDemoCode(r?.demoCode || null)
       setStep('code')
@@ -44,7 +70,7 @@ export default function SignIn() {
         <Link to="/"><Logo size={32} light /></Link>
         <div className="onb-side-body">
           <h2>One press to start the call for help.</h2>
-          <p>Sign in with your phone number. We use it to identify you and as the call-back number during an SOS.</p>
+          <p>{t.side}</p>
         </div>
         <p className="onb-side-foot"><Icon name="lock" size={14} /> We never share your number without your permission.</p>
       </aside>
@@ -55,9 +81,9 @@ export default function SignIn() {
           )}
           {step === 'phone' ? (
             <>
-              <span className="onb-step">Sign in</span>
-              <h1>What's your phone number?</h1>
-              <p className="onb-hint">We'll text you a 6-digit code.</p>
+              <span className="onb-step">{t.step}</span>
+              <h1>{t.title}</h1>
+              <p className="onb-hint">{t.hint}</p>
               <form
                 className="onb-form"
                 onSubmit={(e) => {
@@ -73,7 +99,14 @@ export default function SignIn() {
                   </div>
                 </label>
                 {phone && !validNg(phone) && <p className="form-hint">Enter a Nigerian mobile number, e.g. 0803 123 4567.</p>}
-                {request.isError && <p className="form-error"><Icon name="alert" size={16} /> {request.error.message}</p>}
+                {request.isError && (
+                  <p className="form-error">
+                    <Icon name="alert" size={16} /> {request.error.message}
+                    {(request.error.status === 404 || request.error.status === 409) && (
+                      <Link className="link-btn" to={t.switchTo} state={switchState}>{t.switchLink}</Link>
+                    )}
+                  </p>
+                )}
                 <div className="onb-actions">
                   <Link className="link-btn" to="/">Back to home</Link>
                   <button className="btn btn-primary" disabled={!validNg(phone) || request.isPending}>
@@ -81,6 +114,7 @@ export default function SignIn() {
                   </button>
                 </div>
               </form>
+              <p className="auth-switch">{t.switchText} <Link className="link-btn" to={t.switchTo} state={switchState}>{t.switchLink}</Link></p>
             </>
           ) : (
             <>
@@ -105,7 +139,7 @@ export default function SignIn() {
                     {request.isPending ? 'Sending…' : 'Resend code'}
                   </button>
                   <button className="btn btn-primary" disabled={code.length !== 6 || verify.isPending}>
-                    {verify.isPending ? 'Checking…' : 'Sign in'} <Icon name="arrowRight" size={18} />
+                    {verify.isPending ? 'Checking…' : t.button} <Icon name="arrowRight" size={18} />
                   </button>
                 </div>
               </form>
