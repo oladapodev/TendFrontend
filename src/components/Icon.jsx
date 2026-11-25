@@ -160,6 +160,25 @@ const paths = {
       <path d="M7 21l2-7h6l2 7M9 14 7 9l5 2 5-2-2 5" />
     </>
   ),
+  firstaid: (
+    <>
+      <rect x="3" y="6" width="18" height="14" rx="2.5" />
+      <path d="M9 6V4h6v2M12 10v6M9 13h6" />
+    </>
+  ),
+  pill: (
+    <>
+      <rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-45 12 12)" />
+      <path d="m9.5 9.5 5 5" />
+    </>
+  ),
+  scan: (
+    <>
+      <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" />
+      <path d="M8 12h8" />
+    </>
+  ),
+  external: <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />,
   globe: (
     <>
       <circle cx="12" cy="12" r="9" />
@@ -188,7 +207,16 @@ export default function Icon({ name, size = 20, stroke = 2, className, style, fi
   )
 }
 
-export function Logo({ size = 32, light = false }) {
+export function Logo({ size = 32, light = false, compact = false }) {
+  if (compact) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true">
+        <rect width="40" height="40" rx="12" fill={light ? '#fff' : '#008751'} />
+        <path d="M20 30s-9-5.6-11.6-11.4A6.3 6.3 0 0 1 20 13.1a6.3 6.3 0 0 1 11.6 5.5C29 24.4 20 30 20 30Z" fill={light ? '#008751' : '#fff'} />
+        <path d="M14 20h3.2l1.6-3.4 2.6 6.6 1.6-3.2H26" fill="none" stroke={light ? '#fff' : '#008751'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
+  }
   return (
     <span className="logo" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
       <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true">

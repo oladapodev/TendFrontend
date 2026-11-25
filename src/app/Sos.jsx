@@ -225,7 +225,7 @@ export default function Sos({ me, onClose }) {
 
         <div className="sos-live-actions">
           <a className="btn btn-danger" href="tel:112"><Icon name="phone" size={18} /> Call 112 directly</a>
-          <button className="btn btn-ghost" onClick={() => { nav('/app/cpr'); onClose() }}><Icon name="cpr" size={18} /> Open CPR guide</button>
+          <button className="btn btn-ghost" onClick={() => { nav('/app/emergencies/cpr'); onClose() }}><Icon name="cpr" size={18} /> Open CPR guide</button>
           {ended ? (
             <button className="btn btn-ghost" onClick={onClose}><Icon name="x" size={18} /> Close</button>
           ) : (

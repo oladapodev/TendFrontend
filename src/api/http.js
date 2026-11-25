@@ -72,7 +72,8 @@ export function createHttpApi(baseUrl) {
   return {
     mode: 'live',
     auth: {
-      requestOtp: (phone) => request('/auth/otp', { method: 'POST', body: { phone } }),
+      // mode: 'signup' (number must be new) or 'signin' (number must exist). Server replies 409 / 404 otherwise.
+      requestOtp: (phone, mode = 'signin') => request('/auth/otp', { method: 'POST', body: { phone, mode } }),
       verifyOtp: (phone, code) => request('/auth/verify', { method: 'POST', body: { phone, code } }),
       logout: () => request('/auth/logout', { method: 'POST' }).catch(() => null),
     },
@@ -101,6 +102,9 @@ export function createHttpApi(baseUrl) {
     },
     diet: {
       analyse: (meals) => request('/diet/analyse', { method: 'POST', body: { meals } }),
+    },
+    medicines: {
+      verify: (nafdacNo) => request(`/medicines/verify?nafdac=${encodeURIComponent(nafdacNo)}`),
     },
     agent: {
       chat: (messages, handlers) => streamEvents('/agent/chat', { method: 'POST', body: { messages }, ...handlers }),

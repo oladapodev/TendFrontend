@@ -121,6 +121,16 @@ export function Home({ me, onSos }) {
   const nContacts = contacts.data?.length
   const delay = me.settings?.sosDelay || 5
 
+  const tiles = [
+    { id: 'circle', icon: 'users', tone: 'green', label: 'Emergency contacts', meta: nContacts == null ? '…' : nContacts ? `${nContacts} in your circle` : 'Add your first contact' },
+    { id: 'medical', icon: 'drop', tone: 'red', label: 'Medical ID', meta: m.bloodGroup ? `${m.bloodGroup} · Genotype ${m.genotype || '–'}` : 'Add blood group' },
+    { id: 'locator', icon: 'map', tone: 'blue', label: 'Help Locator', meta: nearest ? `Nearest care ${nearest.distanceKm} km` : 'Find care near you' },
+    { id: 'verify', icon: 'pill', tone: 'blue', label: 'Verify medicine', meta: 'Check a NAFDAC number' },
+    { id: 'diet', icon: 'apple', tone: 'amber', label: 'Diet', meta: me.dietResult ? 'Plan ready' : "Log today's meals" },
+    { id: 'fit', icon: 'activity', tone: 'purple', label: 'Fit Health', meta: `${me.fit.steps.toLocaleString()} steps today` },
+    { id: 'emergencies', icon: 'firstaid', tone: 'red', label: 'Common emergencies', meta: 'CPR, choking, burns and more' },
+    { id: 'agent', icon: 'chat', tone: 'green', label: 'Talk to TendTalk', meta: 'Ask a health question' },
+  ]
   const checks = [
     { label: 'Name & profile', ok: !!me.profile.name, link: '/app/settings' },
     { label: 'Device location', ok: loc.status === 'live', link: '/app/settings' },
@@ -797,38 +807,6 @@ export function Fit({ me }) {
             <li className="todo"><span /> In bed by 11pm</li>
           </ul>
         </div>
-      </div>
-    </div>
-  )
-}
-
-/* ---------- CPR guide ---------- */
-
-export function Cpr() {
-  const steps = [
-    ['Check it is safe', 'Make sure you and the person are not in danger.'],
-    ['Check for a response', 'Tap their shoulders and shout. Look for normal breathing for no more than 10 seconds.'],
-    ['Call for help', 'Press SOS or call 112. Put the phone on speaker.'],
-    ['Push hard and fast', 'Centre of the chest, 5–6 cm deep, 100–120 pushes a minute. Let the chest rise between pushes.'],
-    ['Keep going', 'Do not stop until help arrives or the person starts breathing normally.'],
-  ]
-  return (
-    <div className="page">
-      <SectionHead icon="cpr" tone="red" title="CPR guide" text="Hands-only CPR for adults, step by step. Images and the full guide are coming from the team." />
-      <div className="cpr-layout">
-        <ol className="cpr-steps">
-          {steps.map(([t, d], n) => (
-            <li key={t} className="card">
-              <span className="cpr-n">{n + 1}</span>
-              <div><strong>{t}</strong><p>{d}</p></div>
-            </li>
-          ))}
-        </ol>
-        <aside className="card cpr-aside">
-          <div className="cpr-img"><Icon name="cpr" size={64} stroke={1.2} /><small>CPR illustration coming soon</small></div>
-          <a className="btn btn-danger btn-block" href="tel:112"><Icon name="phone" size={18} /> Call 112</a>
-          <p className="note" style={{ marginTop: 12 }}><Icon name="info" size={16} /> Content to be checked by a clinician before launch.</p>
-        </aside>
       </div>
     </div>
   )

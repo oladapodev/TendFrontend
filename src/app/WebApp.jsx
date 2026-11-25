@@ -7,8 +7,10 @@ import { useAuth } from './auth.jsx'
 import { LocationProvider, useLocation } from './location.jsx'
 import { Onboarding, Permissions, profileComplete } from './Onboarding.jsx'
 import { ErrorBox } from '../components/QueryState.jsx'
-import { Home, Circle, Medical, Diet, Fit, Cpr, Settings } from './Screens.jsx'
+import { Home, Circle, Medical, Diet, Fit, Settings } from './Screens.jsx'
+import { EmergencyHub, EmergencyDetail } from './Emergencies.jsx'
 import Locator from './Locator.jsx'
+import Verify from './Verify.jsx'
 import Agent from './Agent.jsx'
 import Sos from './Sos.jsx'
 import './app.css'
@@ -17,10 +19,11 @@ export const sections = [
   { id: 'home', path: '', label: 'Home', short: 'Home', icon: 'home' },
   { id: 'circle', path: 'circle', label: 'Emergency contacts', short: 'Contacts', icon: 'users', tone: 'green' },
   { id: 'medical', path: 'medical', label: 'Medical ID', short: 'Medical ID', icon: 'drop', tone: 'red' },
+  { id: 'verify', path: 'verify', label: 'Verify medicine', short: 'Verify', icon: 'pill', tone: 'blue' },
   { id: 'locator', path: 'locator', label: 'Help Locator', short: 'Locator', icon: 'map', tone: 'blue' },
   { id: 'diet', path: 'diet', label: 'Diet', short: 'Diet', icon: 'apple', tone: 'amber' },
   { id: 'fit', path: 'fit', label: 'Fit Health', short: 'Fit', icon: 'activity', tone: 'purple' },
-  { id: 'cpr', path: 'cpr', label: 'CPR guide', short: 'CPR', icon: 'cpr', tone: 'red' },
+  { id: 'emergencies', path: 'emergencies', label: 'Common emergencies', short: 'Emergencies', icon: 'firstaid', tone: 'red' },
   { id: 'agent', path: 'agent', label: 'TendTalk agent', short: 'TendTalk', icon: 'chat' },
   { id: 'settings', path: 'settings', label: 'Settings', icon: 'settings' },
 ]
@@ -37,6 +40,23 @@ function LocationChip() {
 function Shell({ me }) {
   const { signOut } = useAuth()
   const [sosOpen, setSosOpen] = useState(false)
+  // Sidebar collapse is a per-browser preference.
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('tendai-rail-collapsed') === '1'
+    } catch {
+      return false
+    }
+  })
+  const toggleRail = () =>
+    setCollapsed((c) => {
+      try {
+        localStorage.setItem('tendai-rail-collapsed', c ? '0' : '1')
+      } catch {
+        /* storage blocked */
+      }
+      return !c
+    })
   const { pathname } = useRouterLocation()
   const seg = pathname.replace(/^\/app\/?/, '').split('/')[0]
   const current = sections.find((s) => s.path === seg) || byId.home
@@ -46,22 +66,27 @@ function Shell({ me }) {
   const startSos = () => setSosOpen(true)
 
   return (
-    <div className="shell">
-      <aside className="rail">
-        <Link to="/" className="rail-logo"><Logo size={30} /></Link>
+    <div className={`shell ${collapsed ? 'rail-collapsed' : ''}`}>
+      <aside className="rail" aria-label="Sidebar">
+        <div className="rail-head">
+          <Link to="/" className="rail-logo" aria-label="TendAI home">{collapsed ? <Logo size={30} compact /> : <Logo size={30} />}</Link>
+          <button className="icon-btn rail-toggle" onClick={toggleRail} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!collapsed} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+            <Icon name={collapsed ? 'chevronRight' : 'chevronLeft'} size={18} />
+          </button>
+        </div>
         <nav className="rail-nav">
           {sections.filter((s) => s.id !== 'settings').map((s) => (
-            <NavLink key={s.id} to={to(s)} end={s.id === 'home'} className={({ isActive }) => `rail-item ${isActive ? 'is-active' : ''} ${s.id === 'agent' ? 'is-agent' : ''}`}>
+            <NavLink key={s.id} to={to(s)} end={s.id === 'home'} title={collapsed ? s.label : undefined} aria-label={collapsed ? s.label : undefined} className={({ isActive }) => `rail-item ${isActive ? 'is-active' : ''} ${s.id === 'agent' ? 'is-agent' : ''}`}>
               <Icon name={s.icon} size={20} />
               <span>{s.label}</span>
             </NavLink>
           ))}
         </nav>
         <div className="rail-foot">
-          <NavLink to="/app/settings" className={({ isActive }) => `rail-item ${isActive ? 'is-active' : ''}`}>
+          <NavLink to="/app/settings" title={collapsed ? 'Settings' : undefined} aria-label={collapsed ? 'Settings' : undefined} className={({ isActive }) => `rail-item ${isActive ? 'is-active' : ''}`}>
             <Icon name="settings" size={20} /><span>Settings</span>
           </NavLink>
-          <div className="rail-user">
+          <div className="rail-user" title={collapsed ? `${me.profile.name} · ${me.phone}` : undefined}>
             <span className="avatar">{first[0]?.toUpperCase()}</span>
             <div>
               <strong>{me.profile.name || 'You'}</strong>
@@ -94,10 +119,13 @@ function Shell({ me }) {
             <Route index element={<Home me={me} onSos={startSos} />} />
             <Route path="circle" element={<Circle />} />
             <Route path="medical" element={<Medical me={me} />} />
+            <Route path="verify" element={<Verify />} />
             <Route path="locator" element={<Locator />} />
             <Route path="diet" element={<Diet me={me} />} />
             <Route path="fit" element={<Fit me={me} />} />
-            <Route path="cpr" element={<Cpr />} />
+            <Route path="emergencies" element={<EmergencyHub onSos={startSos} />} />
+            <Route path="emergencies/:id" element={<EmergencyDetail onSos={startSos} />} />
+            <Route path="cpr" element={<Navigate to="/app/emergencies/cpr" replace />} />
             <Route path="agent" element={<Agent me={me} />} />
             <Route path="settings" element={<Settings me={me} />} />
             <Route path="*" element={<Navigate to="/app" replace />} />

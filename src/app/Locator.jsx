@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Circle as LCircle, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -91,14 +91,14 @@ export default function Locator() {
         )}
 
         <div className="loc-list">
-          {facilities.isPending && <Spinner label="Finding care near youâ€¦" />}
+          {facilities.isPending && <Spinner label="Finding care near you…" />}
           {facilities.isError && <ErrorBox error={facilities.error} onRetry={() => facilities.refetch()} title="Couldn't load nearby care" />}
           {!facilities.isPending && list.map((p) => (
             <button key={p.id} className={`loc-item ${sel?.id === p.id ? 'is-sel' : ''}`} onClick={() => setSel(p)}>
               <span className={`tile-ico ${p.custom ? 'tone-amber' : p.emergency ? 'tone-red' : 'tone-blue'}`}><Icon name={p.custom ? 'star' : 'hospital'} size={20} /></span>
               <span className="loc-item-body">
                 <strong>{p.name}</strong>
-                <small>{p.type}{p.distanceKm != null ? ` Â· ${p.distanceKm} km` : ''}</small>
+                <small>{p.type}{p.distanceKm != null ? ` · ${p.distanceKm} km` : ''}</small>
                 <span className="loc-tags">
                   {p.emergency && <span className="chip chip-red">24h emergency</span>}
                   {p.open && <span className="chip chip-grey"><Icon name="clock" size={12} /> {p.open}</span>}
@@ -146,7 +146,7 @@ export default function Locator() {
               <span className={`tile-ico ${sel.custom ? 'tone-amber' : sel.emergency ? 'tone-red' : 'tone-blue'}`}><Icon name={sel.custom ? 'star' : 'hospital'} size={24} /></span>
               <div>
                 <h3>{sel.name}</h3>
-                <small>{sel.type}{sel.distanceKm != null ? ` Â· ${sel.distanceKm} km straight-line` : ''}</small>
+                <small>{sel.type}{sel.distanceKm != null ? ` · ${sel.distanceKm} km straight-line` : ''}</small>
               </div>
             </div>
             <div className="loc-sheet-actions">
@@ -154,7 +154,7 @@ export default function Locator() {
               {sel.lat != null && <a className="btn btn-ghost" target="_blank" rel="noreferrer" href={directionsUrl(sel, loc.pos)}><Icon name="navigation" size={18} /> Directions</a>}
               {!sel.custom && (
                 <button className="btn btn-ghost" onClick={() => addToSos(sel)} disabled={inSos(sel) || addPlace.isPending}>
-                  {inSos(sel) ? <><Icon name="check" size={18} /> In SOS list</> : <><Icon name="star" size={18} /> {addPlace.isPending ? 'Addingâ€¦' : 'Add to SOS list'}</>}
+                  {inSos(sel) ? <><Icon name="check" size={18} /> In SOS list</> : <><Icon name="star" size={18} /> {addPlace.isPending ? 'Adding…' : 'Add to SOS list'}</>}
                 </button>
               )}
             </div>
@@ -177,7 +177,7 @@ export default function Locator() {
             <>
               <button className="btn btn-ghost" onClick={() => setAdding(null)}>Cancel</button>
               <button className="btn btn-primary" disabled={!adding.name.trim() || adding.phone.replace(/\D/g, '').length < 10 || addPlace.isPending || saveContact.isPending} onClick={saveNew}>
-                {addPlace.isPending || saveContact.isPending ? 'Savingâ€¦' : 'Save'}
+                {addPlace.isPending || saveContact.isPending ? 'Saving…' : 'Save'}
               </button>
             </>
           }
@@ -188,7 +188,7 @@ export default function Locator() {
           </div>
           <div className="form">
             <label className="field"><span>Name</span><input className="input" autoFocus value={adding.name} onChange={(e) => setAdding({ ...adding, name: e.target.value })} placeholder={adding.kind === 'person' ? 'e.g. Dr. Funke Ade' : 'e.g. Family Care Clinic'} /></label>
-            <label className="field"><span>Phone number</span><input className="input" type="tel" value={adding.phone} onChange={(e) => setAdding({ ...adding, phone: e.target.value })} placeholder="+234 â€¦" /></label>
+            <label className="field"><span>Phone number</span><input className="input" type="tel" value={adding.phone} onChange={(e) => setAdding({ ...adding, phone: e.target.value })} placeholder="+234 …" /></label>
             {adding.kind === 'hospital' && (
               <>
                 <label className="field"><span>Address (optional)</span><input className="input" value={adding.address} onChange={(e) => setAdding({ ...adding, address: e.target.value })} placeholder="Street, area" /></label>
