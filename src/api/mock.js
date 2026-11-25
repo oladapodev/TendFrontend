@@ -87,6 +87,18 @@ const deepMerge = (a, b) => {
   return out
 }
 
+/* ---- medicine verification (demo records, NOT real NAFDAC data) ---- */
+
+// Fictional sample records so every result state can be demoed. The real backend checks NAFDAC's registration database.
+const MEDICINES = {
+  'A4-1001': { status: 'registered', name: 'Paracetamol 500 mg Tablets', activeIngredients: ['Paracetamol 500 mg'], form: 'Tablet', category: 'Analgesic / antipyretic', holder: 'Demo Pharma Nigeria Ltd', manufacturer: 'Demo Pharma Nigeria Ltd, Lagos', approvedOn: '2022-03-14', expiresOn: '2027-03-13' },
+  'A4-1002': { status: 'registered', name: 'Artemether/Lumefantrine 20/120 mg Tablets', activeIngredients: ['Artemether 20 mg', 'Lumefantrine 120 mg'], form: 'Tablet', category: 'Antimalarial', holder: 'Sample Health Products Ltd', manufacturer: 'Sample Health Products Ltd, Ogun', approvedOn: '2021-08-02', expiresOn: '2026-08-01' },
+  'B4-2001': { status: 'registered', name: 'Oral Rehydration Salts', activeIngredients: ['Sodium chloride', 'Glucose', 'Potassium chloride', 'Trisodium citrate'], form: 'Powder for oral solution', category: 'Electrolyte replacement', holder: 'Example Medics Ltd', manufacturer: 'Example Medics Ltd, Kano', approvedOn: '2023-01-20', expiresOn: '2028-01-19' },
+  '04-3001': { status: 'expired', name: 'Amoxicillin 500 mg Capsules', activeIngredients: ['Amoxicillin 500 mg'], form: 'Capsule', category: 'Antibiotic', holder: 'Old Stock Pharma Ltd', manufacturer: 'Old Stock Pharma Ltd, Abuja', approvedOn: '2015-05-10', expiresOn: '2020-05-09' },
+  'A4-9999': { status: 'suspended', name: 'Cough Syrup 100 ml', activeIngredients: ['Dextromethorphan 15 mg/5 ml'], form: 'Syrup', category: 'Cough suppressant', holder: 'Recalled Products Ltd', manufacturer: 'Recalled Products Ltd', approvedOn: '2019-11-01', expiresOn: '2024-10-31', alert: 'Registration suspended after a safety alert. Do not use; return it to the pharmacy.' },
+}
+export const DEMO_NAFDAC_SAMPLES = ['A4-1001', '04-3001', 'A4-9999', 'A4-0000']
+
 /* ---- diet + agent demo logic ---- */
 
 function analyseMeals(meals) {
@@ -298,6 +310,17 @@ export function createMockApi() {
         u.me.dietResult = result
         save()
         return result
+      },
+    },
+    medicines: {
+      async verify(nafdacNo) {
+        await wait(900)
+        current()
+        const key = nafdacNo.toUpperCase().replace(/\s+/g, '')
+        const rec = MEDICINES[key]
+        const checkedAt = new Date().toISOString()
+        if (!rec) return { nafdacNo: key, status: 'not_found', checkedAt, source: 'Demo data' }
+        return { nafdacNo: key, ...rec, checkedAt, source: 'Demo data' }
       },
     },
     agent: {

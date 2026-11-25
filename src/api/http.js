@@ -102,6 +102,9 @@ export function createHttpApi(baseUrl) {
     diet: {
       analyse: (meals) => request('/diet/analyse', { method: 'POST', body: { meals } }),
     },
+    medicines: {
+      verify: (nafdacNo) => request(`/medicines/verify?nafdac=${encodeURIComponent(nafdacNo)}`),
+    },
     agent: {
       chat: (messages, handlers) => streamEvents('/agent/chat', { method: 'POST', body: { messages }, ...handlers }),
     },

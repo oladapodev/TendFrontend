@@ -1,4 +1,4 @@
-﻿import { Link } from 'react-router'
+import { Link } from 'react-router'
 import Icon, { Logo } from '../components/Icon.jsx'
 import './landing.css'
 
@@ -25,9 +25,9 @@ const features = [
 ]
 
 const roadmap = [
-  { tag: '01 Â· First demo', title: 'One press â†’ one incident', items: ['Profile + sharing choices', 'A checked Abeokuta map', 'Hospital and contact test calls', 'A clear call-and-text timeline'] },
-  { tag: '02 Â· Companion next', title: 'Prepare before help is needed', items: ['Report explanation + review', 'Care reminders and activity goals', 'Hospital locator', 'Travel Safe check-in plan'] },
-  { tag: '03 Â· Validate later', title: 'Make it safe for real use', items: ['Enrolled nearby-helper network', 'Facility response agreements', 'Clinical + privacy review', 'Wearable and automatic triggers'] },
+  { tag: '01 · First demo', title: 'One press → one incident', items: ['Profile + sharing choices', 'A checked Abeokuta map', 'Hospital and contact test calls', 'A clear call-and-text timeline'] },
+  { tag: '02 · Companion next', title: 'Prepare before help is needed', items: ['Report explanation + review', 'Care reminders and activity goals', 'Hospital locator', 'Travel Safe check-in plan'] },
+  { tag: '03 · Validate later', title: 'Make it safe for real use', items: ['Enrolled nearby-helper network', 'Facility response agreements', 'Clinical + privacy review', 'Wearable and automatic triggers'] },
 ]
 
 const stack = ['React', 'Python', 'FastAPI', 'Qdrant', 'Vapi', 'Twilio', 'WhatsApp', 'Nobus Cloud']
@@ -45,14 +45,14 @@ function HeroVisual() {
             <span>SOS</span>
           </div>
         </div>
-        <p className="hv-caption">Hospital Â· Family Â· Helpers</p>
+        <p className="hv-caption">Hospital · Family · Helpers</p>
       </div>
 
       <div className="hv-card hv-status">
-        <p className="hv-title">TendSOS Â· Incident updates</p>
+        <p className="hv-title">TendSOS · Incident updates</p>
         {[
           { who: 'FMC Abeokuta', role: 'Hospital', s: 'Calling now', c: 'amber', i: 'hospital' },
-          { who: 'Sister', role: 'TendCircle', s: 'Answered Â· aware', c: 'green', i: 'user' },
+          { who: 'Sister', role: 'TendCircle', s: 'Answered · aware', c: 'green', i: 'user' },
           { who: 'Chosen friend', role: 'TendCircle', s: 'Text sent', c: 'blue', i: 'message' },
           { who: 'Nearby helper', role: 'Opted in', s: 'Demo alert only', c: 'grey', i: 'users' },
         ].map((r) => (
@@ -70,7 +70,7 @@ function HeroVisual() {
       <div className="hv-card hv-mini">
         <Icon name="pin" size={18} />
         <div>
-          <strong>Nearest care Â· 1.8 km</strong>
+          <strong>Nearest care · 1.8 km</strong>
           <small>Route on real roads</small>
         </div>
       </div>
@@ -192,15 +192,15 @@ export default function Landing() {
             <ul className="l-checks">
               <li><Icon name="check" size={18} /> Live status per hospital, contact and helper</li>
               <li><Icon name="check" size={18} /> Your medical ID ready to share with responders</li>
-              <li><Icon name="check" size={18} /> â€œCall 112 directlyâ€ always one tap away</li>
+              <li><Icon name="check" size={18} /> “Call 112 directly” always one tap away</li>
             </ul>
           </div>
           <div className="l-status-demo">
             {[
               ['Calling now', 'amber', 'Hospital line is ringing'],
-              ['Answered Â· aware', 'green', 'A person confirmed they know'],
+              ['Answered · aware', 'green', 'A person confirmed they know'],
               ['Text sent', 'blue', 'Delivered, not yet read'],
-              ['No answer Â· retrying', 'red', 'We try again, then move on'],
+              ['No answer · retrying', 'red', 'We try again, then move on'],
               ['Demo alert only', 'grey', 'Clearly labelled simulation'],
             ].map(([s, c, d]) => (
               <div className="l-status-row" key={s}>
