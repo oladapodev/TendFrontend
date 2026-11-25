@@ -6,7 +6,8 @@ import { isDemo } from '../api/index.js'
 import { useMe } from './data.js'
 import { useAuth } from './auth.jsx'
 import { LocationProvider, useLocation } from './location.jsx'
-import { Onboarding, Permissions } from './Onboarding.jsx'
+import { Onboarding, Permissions, profileComplete } from './Onboarding.jsx'
+import { ErrorBox } from '../components/QueryState.jsx'
 import { Home, Circle, Medical, Diet, Fit, Cpr, Settings } from './Screens.jsx'
 import Locator from './Locator.jsx'
 import Agent from './Agent.jsx'
@@ -120,11 +121,22 @@ function Shell({ me }) {
 
 function Gate() {
   const me = useMe()
+  const { signOut } = useAuth()
   return (
     <div className="gate">
       <QueryState query={me} loadingLabel="Loading your profile…" errorTitle="Couldn't load your profile">
         {(data) => {
-          if (!data.onboarded) return <Onboarding me={data} />
+          // Phone comes from sign-in; without it the account can't be used for SOS call-backs.
+          if (!data.phone) {
+            return (
+              <div className="gate-msg">
+                <ErrorBox title="Your phone number is missing" error={{ message: 'Please sign in again with your phone number.' }} />
+                <button className="btn btn-primary" onClick={signOut}>Sign in again</button>
+              </div>
+            )
+          }
+          // Name and age are required: anyone missing them goes back through onboarding.
+          if (!data.onboarded || !profileComplete(data)) return <Onboarding me={data} />
           if (!data.permissionsDone) return <Permissions />
           return <Shell me={data} />
         }}
