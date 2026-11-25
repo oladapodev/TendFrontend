@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Route, Routes, useLocation as useRouterLocation } from 'react-router'
 import Icon, { Logo } from '../components/Icon.jsx'
-import QueryState from '../components/QueryState.jsx'
-import { useMe } from './data.js'
+import Avatar from '../components/Avatar.jsx'
+import ThemeToggle from '../components/ThemeToggle.jsx'
+import QueryState, { ErrorBox } from '../components/QueryState.jsx'
+import { useMe, useUpdateMe } from './data.js'
 import { useAuth } from './auth.jsx'
+import { useTheme } from './themeContext.js'
 import { LocationProvider, useLocation } from './location.jsx'
 import { Onboarding, Permissions, profileComplete } from './Onboarding.jsx'
-import { ErrorBox } from '../components/QueryState.jsx'
-import { Home, Circle, Medical, Diet, Fit, Settings } from './Screens.jsx'
+import { Home, Circle, Medical, Diet, Fit } from './Screens.jsx'
+import Settings from './Settings.jsx'
 import { EmergencyHub, EmergencyDetail } from './Emergencies.jsx'
 import Locator from './Locator.jsx'
 import Verify from './Verify.jsx'
@@ -36,7 +39,7 @@ function LocationChip() {
   const { status, pos } = useLocation()
   if (status === 'live') return <span className="chip chip-green loc-chip"><Icon name="pin" size={14} /> Location on · ±{pos.accuracy} m</span>
   if (status === 'locating') return <span className="chip chip-amber loc-chip"><Icon name="pin" size={14} /> Finding you…</span>
-  return <Link to="/app/settings" className="chip chip-grey loc-chip"><Icon name="pin" size={14} /> Location off</Link>
+  return <Link to="/app/settings?tab=safety" className="chip chip-grey loc-chip"><Icon name="pin" size={14} /> Location off</Link>
 }
 
 // Grouping for the mobile menu drawer (everything the bottom bar has no room for, plus the rest).
@@ -97,7 +100,7 @@ function MenuDrawer({ me, onClose, signOut }) {
           ))}
         </nav>
         <div className="drawer-foot">
-          <span className="avatar">{(me.profile.name || 'Y')[0].toUpperCase()}</span>
+          <Avatar profile={me.profile} size="md" />
           <div>
             <strong>{me.profile.name || 'You'}</strong>
             <small>{me.phone}</small>
@@ -111,6 +114,8 @@ function MenuDrawer({ me, onClose, signOut }) {
 
 function Shell({ me }) {
   const { signOut } = useAuth()
+  const { setTheme } = useTheme()
+  const save = useUpdateMe()
   const [sosOpen, setSosOpen] = useState(false)
   // Sidebar collapse is a per-browser preference.
   const [collapsed, setCollapsed] = useState(() => {
@@ -140,6 +145,23 @@ function Shell({ me }) {
   const closeMenu = useCallback(() => setMenuOpen(false), [])
   useEffect(() => setMenuOpen(false), [pathname])
 
+  const prefs = me.settings?.preferences || {}
+  useEffect(() => {
+    const root = document.documentElement
+    root.dataset.text = prefs.largeText ? 'large' : 'default'
+    root.dataset.motion = prefs.reduceMotion ? 'reduce' : 'default'
+    return () => {
+      delete root.dataset.text
+      delete root.dataset.motion
+    }
+  }, [prefs.largeText, prefs.reduceMotion])
+
+  useEffect(() => {
+    if (prefs.theme === 'light' || prefs.theme === 'dark' || prefs.theme === 'system') {
+      setTheme(prefs.theme)
+    }
+  }, [prefs.theme, setTheme])
+
   return (
     <div className={`shell ${collapsed ? 'rail-collapsed' : ''}`}>
       <aside className="rail" aria-label="Sidebar">
@@ -162,11 +184,13 @@ function Shell({ me }) {
             <Icon name="settings" size={20} /><span>Settings</span>
           </NavLink>
           <div className="rail-user" title={collapsed ? `${me.profile.name} · ${me.phone}` : undefined}>
-            <span className="avatar">{first[0]?.toUpperCase()}</span>
-            <div>
-              <strong>{me.profile.name || 'You'}</strong>
-              <small>{me.phone}</small>
-            </div>
+            <Link to="/app/settings" className="rail-user-link" title="Open profile & settings">
+              <Avatar profile={me.profile} size="md" />
+              <div>
+                <strong>{me.profile.name || 'You'}</strong>
+                <small>{me.phone}</small>
+              </div>
+            </Link>
             <button className="icon-btn" onClick={signOut} aria-label="Sign out" title="Sign out"><Icon name="logout" size={18} /></button>
           </div>
         </div>
@@ -186,6 +210,10 @@ function Shell({ me }) {
           </div>
           <div className="topbar-right">
             <LocationChip />
+            <ThemeToggle compact onToggle={(next) => save.mutate({ settings: { preferences: { theme: next } } })} />
+            <Link to="/app/settings" className="topbar-avatar" aria-label="Profile and settings" title="Profile & settings">
+              <Avatar profile={me.profile} size="sm" />
+            </Link>
             <button className="sos-pill" onClick={startSos} aria-label="Start emergency SOS">
               <span className="sos-pill-dot" /> SOS
             </button>

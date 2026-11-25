@@ -1,5 +1,5 @@
 // Real backend adapter (FastAPI). Endpoints follow docs/IMPLEMENTATION_PLAN.md §6.
-import { getToken, clearToken } from './session.js'
+import { getToken, setToken, clearToken } from './session.js'
 
 export class ApiError extends Error {
   constructor(message, status, body) {
@@ -74,12 +74,28 @@ export function createHttpApi(baseUrl) {
     auth: {
       // mode: 'signup' (number must be new) or 'signin' (number must exist). Server replies 409 / 404 otherwise.
       requestOtp: (phone, mode = 'signin') => request('/auth/otp', { method: 'POST', body: { phone, mode } }),
-      verifyOtp: (phone, code) => request('/auth/verify', { method: 'POST', body: { phone, code } }),
+      verifyOtp: async (phone, code) => {
+        const res = await request('/auth/verify', { method: 'POST', body: { phone, code } })
+        if (res?.token) setToken(res.token)
+        return res
+      },
+      loginWithPassword: async (phone, password) => {
+        const res = await request('/auth/login', { method: 'POST', body: { phone, password } })
+        if (res?.token) setToken(res.token)
+        return res
+      },
+      changePassword: (payload) => request('/auth/password/change', { method: 'POST', body: payload }),
+      requestPasswordReset: (phone) => request('/auth/password/reset/request', { method: 'POST', body: { phone } }),
+      resetPassword: (payload) => request('/auth/password/reset/confirm', { method: 'POST', body: payload }),
       logout: () => request('/auth/logout', { method: 'POST' }).catch(() => null),
     },
     me: {
       get: () => request('/me'),
       patch: (patch) => request('/me', { method: 'PATCH', body: patch }),
+      remove: () => request('/me', { method: 'DELETE' }).then((res) => {
+        clearToken()
+        return res
+      }),
     },
     contacts: {
       list: () => request('/contacts'),

@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link } from 'react-router'
 import Icon from '../components/Icon.jsx'
 import QueryState, { Spinner } from '../components/QueryState.jsx'
 import { useContacts, useSaveContact, useDeleteContact, usePlaces, useUpdateMe, useAnalyseDiet, useFacilities } from './data.js'
 import { useLocation } from './location.jsx'
-import { useAuth } from './auth.jsx'
 import { bmi } from './Onboarding.jsx'
 import i18next from 'i18next'
 import { Capacitor } from '@capacitor/core'
@@ -242,7 +241,7 @@ export function Home({ me, onSos }) {
               <Icon name="phone" size={18} />
               <span>Call 112 directly</span>
             </a>
-            <Link className="btn btn-ghost btn-sm" to="/app/settings">
+            <Link className="btn btn-ghost btn-sm" to="/app/settings?tab=safety">
               <Icon name="clock" size={16} /> Change cancel timer ({delay}s)
             </Link>
           </div>
@@ -659,7 +658,7 @@ export function Medical({ me }) {
               <dt>Medication</dt><dd>{m.medications.join(', ') || 'None recorded'}</dd>
             </dl>
           </div>
-          <p className="note"><Icon name="lock" size={16} /> Saved automatically. Choose which fields are shared in <Link className="link-btn" to="/app/settings">Settings</Link>.</p>
+          <p className="note"><Icon name="lock" size={16} /> Saved automatically. Choose which fields are shared in <Link className="link-btn" to="/app/settings?tab=safety">Settings</Link>.</p>
         </aside>
       </div>
     </div>
@@ -1359,149 +1358,6 @@ export function Fit({ me }) {
               ? 'Showing the last 7 days from Google Health Connect / Apple Health.'
               : 'Sample data. Connect Health Connect or Apple Health on your device to see your own numbers.'}
           </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ---------- YarnGPT Translation Integration ---------- */
-
-// YarnGPT API integration for Nigerian languages
-const YARNGPT_API = 'https://api.yarngpt.ai/v1'
-
-// Translate text using YarnGPT
-async function translateWithYarnGPT(text, targetLanguage) {
-  try {
-    const response = await fetch(`${YARNGPT_API}/translate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_YARNGPT_API_KEY || 'your-api-key'}`
-      },
-      body: JSON.stringify({
-        text,
-        target_language: targetLanguage
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error('Translation failed')
-    }
-
-    const data = await response.json()
-    return data.translated_text || text
-  } catch (error) {
-    console.error('YarnGPT translation error:', error)
-    return text
-  }
-}
-
-// Text-to-speech using YarnGPT
-async function speakWithYarnGPT(text, language, voice) {
-  try {
-    const voiceId = voice || getDefaultVoice(language)
-    const response = await fetch(`${YARNGPT_API}/tts`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_YARNGPT_API_KEY || 'your-api-key'}`
-      },
-      body: JSON.stringify({
-        text,
-        voice: voiceId,
-        target_language: language
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error('TTS failed')
-    }
-
-    const blob = await response.blob()
-    return URL.createObjectURL(blob)
-  } catch (error) {
-    console.error('YarnGPT TTS error:', error)
-    return null
-  }
-}
-
-// Get default voice for language
-function getDefaultVoice(language) {
-  const voices = {
-    yo: 'abayomi',
-    ha: 'amina',
-    ig: 'chioma',
-    en: 'idera'
-  }
-  return voices[language] || 'idera'
-}
-
-/* ---------- Settings ---------- */
-
-const shareFields = [
-  ['location', 'Live location'],
-  ['nameAge', 'Name and age'],
-  ['bloodGenotype', 'Blood group and genotype'],
-  ['allergies', 'Allergies'],
-  ['infections', 'Known infections'],
-  ['conditionsMeds', 'Conditions and medication'],
-]
-
-export function Settings({ me }) {
-  const save = useUpdateMe()
-  const { signOut } = useAuth()
-  const loc = useLocation()
-  const [custom, setCustom] = useState(String(me.settings.sosDelay))
-  const s = me.settings
-  const setDelay = (n) => save.mutate({ settings: { sosDelay: Math.min(30, Math.max(3, n)) } })
-
-  return (
-    <div className="page">
-      <SectionHead icon="settings" tone="grey" title="Settings" text="SOS countdown, what gets shared, and your account." action={<SaveState mutation={save} />} />
-      <div className="settings-grid">
-        <div className="card">
-          <h3>SOS countdown</h3>
-          <p className="muted">Time you have to cancel after pressing SOS.</p>
-          <div className="choice-row" style={{ marginTop: 14 }}>
-            {[3, 5, 10].map((n) => (
-              <button key={n} className={`choice ${s.sosDelay === n ? 'on' : ''}`} aria-pressed={s.sosDelay === n} onClick={() => { setDelay(n); setCustom(String(n)) }}>{n} sec</button>
-            ))}
-          </div>
-          <label className="field" style={{ marginTop: 14 }}>
-            <span>Custom (3–30 seconds)</span>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input className="input" type="number" min="3" max="30" value={custom} onChange={(e) => setCustom(e.target.value)} />
-              <button className="btn btn-ghost" onClick={() => setDelay(Number(custom) || 5)}>Save</button>
-            </div>
-          </label>
-        </div>
-        <div className="card">
-          <h3>Shared during SOS</h3>
-          <p className="muted">Only these fields go to the hospital and your contacts.</p>
-          <ul className="toggle-list">
-            {shareFields.map(([k, l]) => (
-              <li key={k}>
-                <span>{l}</span>
-                <label className="switch">
-                  <input type="checkbox" aria-label={l} checked={!!s.share[k]} onChange={(e) => save.mutate({ settings: { share: { [k]: e.target.checked } } })} />
-                  <span />
-                </label>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="card">
-          <h3>Location</h3>
-          <p className="muted">
-            {loc.status === 'live' ? `On · accurate to about ${loc.pos.accuracy} m.` : loc.status === 'denied' ? "Blocked in your browser. Allow location for this site in your browser's settings." : 'Off. Turn it on so SOS can share where you are.'}
-          </p>
-          {loc.status !== 'live' && loc.status !== 'denied' && <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={loc.start}><Icon name="pin" size={18} /> Turn on location</button>}
-        </div>
-        <div className="card">
-          <h3>Account</h3>
-          <p className="muted">Signed in as {me.phone}.</p>
-          <button className="btn btn-ghost" style={{ marginTop: 14 }} onClick={signOut}><Icon name="logout" size={18} /> Sign out</button>
         </div>
       </div>
     </div>
