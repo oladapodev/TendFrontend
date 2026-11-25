@@ -110,7 +110,7 @@ export default function SignIn({ mode = 'signin' }) {
                 <div className="onb-actions">
                   <Link className="link-btn" to="/">Back to home</Link>
                   <button className="btn btn-primary" disabled={!validNg(phone) || request.isPending}>
-                    {request.isPending ? 'Sending…' : 'Send code'} <Icon name="arrowRight" size={18} />
+                    {request.isPending ? 'Sending OTP Code…' : 'Send code'} <Icon name="arrowRight" size={18} />
                   </button>
                 </div>
               </form>
@@ -139,7 +139,7 @@ export default function SignIn({ mode = 'signin' }) {
                     {request.isPending ? 'Sending…' : 'Resend code'}
                   </button>
                   <button className="btn btn-primary" disabled={code.length !== 6 || verify.isPending}>
-                    {verify.isPending ? 'Checking…' : t.button} <Icon name="arrowRight" size={18} />
+                    {verify.isPending ? 'Signing In' : t.button} <Icon name="arrowRight" size={18} />
                   </button>
                 </div>
               </form>
