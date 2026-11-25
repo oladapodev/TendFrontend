@@ -43,7 +43,8 @@ export default function App() {
       <Suspense fallback={<div className="gate"><Spinner /></div>}>
         <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/signin" element={<SignIn />} />
+          <Route path="/signin" element={<SignIn key="signin" mode="signin" />} />
+          <Route path="/signup" element={<SignIn key="signup" mode="signup" />} />
           <Route path="/app/*" element={<RequireAuth><WebApp /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -86,6 +86,8 @@ Map: **Leaflet + OpenStreetMap tiles** (matches slide 05). Facilities come from 
 ## 6. API contract (proposed, to agree with the backend team)
 
 ```
+POST /auth/otp                { phone, mode: signup|signin } -> 200 sent | 404 no account (signin) | 409 exists (signup)
+POST /auth/verify             { phone, code } -> { token, me }
 POST /profile                 { name, age, heightCm, weightKg, sex? }
 PUT  /profile/medical         { bloodGroup, genotype, allergies[], infections[], conditions[], medications[] }
 GET  /contacts  POST /contacts  DELETE /contacts/:id   { name, phone, relationship, notifyBy: [call|sms|whatsapp] }

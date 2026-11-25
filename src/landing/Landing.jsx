@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import Icon, { Logo } from '../components/Icon.jsx'
+import { useAuth } from '../app/auth.jsx'
 import './landing.css'
 
 const problems = [
@@ -78,7 +79,23 @@ function HeroVisual() {
   )
 }
 
+// Signed-out visitors see Sign in / Sign up; signed-in users get a shortcut to their dashboard.
+function AuthButtons({ size = 'sm', light = false }) {
+  const { signedIn } = useAuth()
+  const sm = size === 'sm' ? ' btn-sm' : ''
+  if (signedIn) {
+    return <Link className={`btn ${light ? 'btn-white' : 'btn-primary'}${sm}`} to="/app">Go to dashboard <Icon name="arrowRight" size={16} /></Link>
+  }
+  return (
+    <div className="l-auth">
+      <Link className={`btn ${light ? 'l-btn-outline-light' : 'btn-ghost'}${sm}`} to="/signin">Sign in</Link>
+      <Link className={`btn ${light ? 'btn-white' : 'btn-primary'}${sm}`} to="/signup">Sign up <Icon name="arrowRight" size={16} /></Link>
+    </div>
+  )
+}
+
 export default function Landing() {
+  const { signedIn } = useAuth()
   return (
     <div className="landing">
       <header className="l-nav">
@@ -89,7 +106,7 @@ export default function Landing() {
             <a href="#features" onClick={(e) => { e.preventDefault(); document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' }) }}>Features</a>
             <a href="#roadmap" onClick={(e) => { e.preventDefault(); document.getElementById('roadmap')?.scrollIntoView({ behavior: 'smooth' }) }}>Roadmap</a>
           </nav>
-          <Link className="btn btn-primary btn-sm" to="/app">Open web app <Icon name="arrowRight" size={16} /></Link>
+          <AuthButtons />
         </div>
       </header>
 
@@ -107,7 +124,7 @@ export default function Landing() {
               TendAI is the companion that helps you stay ready.
             </p>
             <div className="l-cta">
-              <Link className="btn btn-primary" to="/app">Try the web app <Icon name="arrowRight" size={18} /></Link>
+              <Link className="btn btn-primary" to={signedIn ? '/app' : '/signup'}>{signedIn ? 'Go to dashboard' : 'Sign up free'} <Icon name="arrowRight" size={18} /></Link>
               <a className="btn btn-ghost" href="#how" onClick={(e) => { e.preventDefault(); document.getElementById('how')?.scrollIntoView({ behavior: 'smooth' }) }}>See how it works</a>
             </div>
             <ul className="l-proof">
@@ -270,7 +287,7 @@ export default function Landing() {
             <p>TendSOS starts the response. TendAI helps you stay ready.</p>
           </div>
           <div className="l-cta">
-            <Link className="btn btn-white" to="/app">Open the web app <Icon name="arrowRight" size={18} /></Link>
+            <AuthButtons size="md" light />
           </div>
         </div>
       </section>

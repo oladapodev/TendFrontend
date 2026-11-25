@@ -170,9 +170,12 @@ export function createMockApi() {
   return {
     mode: 'demo',
     auth: {
-      async requestOtp(phone) {
+      async requestOtp(phone, mode = 'signin') {
         await wait(500)
         if (phone.replace(/\D/g, '').length < 10) throw new MockError('Enter a valid Nigerian phone number.', 422)
+        const exists = !!db.users[phone.replace(/\D/g, '')]
+        if (mode === 'signin' && !exists) throw new MockError('No account uses this number yet.', 404)
+        if (mode === 'signup' && exists) throw new MockError('This number already has an account.', 409)
         return { sent: true, demoCode: DEMO_OTP }
       },
       async verifyOtp(phone, code) {
