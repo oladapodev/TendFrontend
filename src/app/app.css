@@ -1823,25 +1823,272 @@
   background: var(--green-50);
   transform: translateY(-1px);
 }
-.empty { display: grid; justify-items: center; text-align: center; gap: 10px; padding: 56px 24px; border-radius: var(--radius-lg); border: 2px dashed var(--line); background: var(--surface); }
-.empty .tile-ico { width: 72px; height: 72px; border-radius: 22px; }
-.empty p { color: var(--ink-500); max-width: 380px; margin-bottom: 8px; }
-.diet-layout { display: grid; grid-template-columns: 1fr 360px; gap: 24px; align-items: start; }
-.rec-list { display: grid; gap: 12px; }
-.rec { display: flex; gap: 16px; padding: 20px; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--line); }
-.rec-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.rec p { margin-top: 4px; color: var(--ink-500); font-size: 15px; }
-.timeline { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 0; }
-.timeline li { display: grid; grid-template-columns: 100px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--line); }
-.timeline li:last-child { border-bottom: 0; }
-.tl-time { font-size: 13px; font-weight: 700; color: var(--green-text); }
-.timeline div { display: grid; line-height: 1.35; }
-.timeline small { color: var(--ink-500); font-size: 13px; }
-.meals-dl { margin: 10px 0 0; display: grid; gap: 8px; font-size: 14px; }
-.meals-dl div { display: grid; grid-template-columns: 80px 1fr; gap: 10px; }
-.meals-dl dt { text-transform: capitalize; color: var(--ink-500); }
-.meals-dl dd { margin: 0; font-weight: 600; }
-.meal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+/* ============ DIET DARK MODE ============ */
+:root[data-theme='dark'] .diet-plate-hero {
+  background: linear-gradient(135deg, var(--surface) 0%, var(--surface-elevated) 100%);
+  border-color: rgba(71, 207, 145, 0.25);
+  box-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme='dark'] .hero-eyebrow {
+  color: var(--green-text);
+  background: var(--green-50);
+  border-color: var(--green-200);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-theme='dark'] .plate-part {
+  background: var(--surface-elevated);
+  border-color: var(--line);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-theme='dark'] .plate-part:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme='dark'] .part-veg {
+  border-left-color: var(--green-text);
+}
+
+:root[data-theme='dark'] .part-veg .plate-pct {
+  background: var(--green-100);
+  color: var(--green-text-strong);
+}
+
+:root[data-theme='dark'] .part-protein {
+  border-left-color: var(--amber-text);
+}
+
+:root[data-theme='dark'] .part-protein .plate-pct {
+  background: var(--amber-100);
+  color: var(--amber-text);
+}
+
+:root[data-theme='dark'] .part-carb {
+  border-left-color: #fb923c;
+}
+
+:root[data-theme='dark'] .part-carb .plate-pct {
+  background: #3e1f13;
+  color: #fb923c;
+}
+
+:root[data-theme='dark'] .tag-green {
+  background: var(--green-100);
+  color: var(--green-text);
+}
+
+:root[data-theme='dark'] .tag-amber {
+  background: var(--amber-100);
+  color: var(--amber-text);
+}
+
+:root[data-theme='dark'] .tag-orange {
+  background: #3e1f13;
+  color: #fb923c;
+}
+
+:root[data-theme='dark'] .plate-visual {
+  border-color: var(--surface-elevated);
+  background: var(--surface);
+  box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--line), inset 0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme='dark'] .plate-segment.seg-veg {
+  background: linear-gradient(145deg, #133a27 0%, #174d33 100%);
+  border-right-color: rgba(71, 207, 145, 0.3);
+}
+
+:root[data-theme='dark'] .seg-veg .segment-icon {
+  color: var(--green-text);
+}
+
+:root[data-theme='dark'] .seg-veg .segment-pct {
+  color: var(--green-text-strong);
+}
+
+:root[data-theme='dark'] .seg-veg .segment-name {
+  color: #a7f3d0;
+}
+
+:root[data-theme='dark'] .plate-segment.seg-protein {
+  background: linear-gradient(145deg, #3d280a 0%, #52350e 100%);
+  border-bottom-color: rgba(243, 184, 89, 0.3);
+}
+
+:root[data-theme='dark'] .seg-protein .segment-icon {
+  color: var(--amber-text);
+}
+
+:root[data-theme='dark'] .seg-protein .segment-pct {
+  color: #fde68a;
+}
+
+:root[data-theme='dark'] .seg-protein .segment-name {
+  color: #fed7aa;
+}
+
+:root[data-theme='dark'] .plate-segment.seg-carb {
+  background: linear-gradient(145deg, #3d1c0e 0%, #542714 100%);
+}
+
+:root[data-theme='dark'] .seg-carb .segment-icon {
+  color: #fb923c;
+}
+
+:root[data-theme='dark'] .seg-carb .segment-pct {
+  color: #fed7aa;
+}
+
+:root[data-theme='dark'] .seg-carb .segment-name {
+  color: #ffedd5;
+}
+
+:root[data-theme='dark'] .plate-center {
+  background: var(--surface);
+  border-color: var(--surface-elevated);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  color: var(--green-text);
+}
+
+:root[data-theme='dark'] .plate-floating-badge {
+  background: var(--surface-elevated);
+  color: var(--ink-900);
+  border-color: var(--line);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme='dark'] .plate-floating-badge svg {
+  color: var(--green-text);
+}
+
+:root[data-theme='dark'] .diet-meal-card {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme='dark'] .diet-meal-card:hover {
+  border-color: var(--green-600);
+  box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme='dark'] .diet-meal-card.is-logged {
+  border-color: var(--green-200);
+  background: linear-gradient(180deg, var(--green-50) 0%, var(--surface) 40%);
+}
+
+:root[data-theme='dark'] .diet-meal-card.is-logged .meal-card-action-badge {
+  background: var(--green-100);
+  color: var(--green-text);
+}
+
+:root[data-theme='dark'] .diet-meal-card.is-empty .meal-card-action-badge {
+  background: var(--surface-subtle);
+  border-color: var(--line);
+  color: var(--ink-500);
+}
+
+:root[data-theme='dark'] .logged-chip {
+  background: var(--surface-elevated);
+  border-color: var(--line);
+  color: var(--ink-900);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme='dark'] .chip-bullet {
+  background: var(--green-text);
+}
+
+:root[data-theme='dark'] .empty-meal-hint-box {
+  background: var(--surface-subtle);
+  border-color: var(--line);
+}
+
+:root[data-theme='dark'] .empty-hint-icon {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink-500);
+}
+
+:root[data-theme='dark'] .diet-meal-foot {
+  border-top-color: var(--line);
+  color: var(--green-text);
+}
+
+:root[data-theme='dark'] .diet-meal-card.is-empty .diet-meal-foot {
+  color: var(--ink-500);
+}
+
+:root[data-theme='dark'] .rec.card {
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+:root[data-theme='dark'] .rec.card:hover {
+  border-color: var(--green-600);
+  box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme='dark'] .diet-schedule-card {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme='dark'] .schedule-head {
+  color: var(--green-text);
+}
+
+:root[data-theme='dark'] .timeline {
+  border-left-color: var(--green-200);
+}
+
+:root[data-theme='dark'] .timeline li::before {
+  background: var(--surface);
+  border-color: var(--green-text);
+  box-shadow: 0 0 0 2px rgba(71, 207, 145, 0.25);
+}
+
+:root[data-theme='dark'] .tl-time {
+  background: var(--green-100);
+  border-color: var(--green-200);
+  color: var(--green-text);
+}
+
+:root[data-theme='dark'] .diet-wisdom-card {
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6);
+}
+
+/* Modal in dark mode */
+:root[data-theme='dark'] .meal-tabs-row {
+  background: var(--surface-subtle);
+  border-color: var(--line);
+}
+
+:root[data-theme='dark'] .meal-tab.is-active {
+  background: var(--surface-elevated);
+  color: var(--green-text);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme='dark'] .categorized-chips-box {
+  background: var(--surface-subtle);
+  border-color: var(--line);
+}
+
+:root[data-theme='dark'] .chip-item {
+  background: var(--surface-elevated);
+  border-color: var(--line);
+  color: var(--ink-900);
+}
+
+:root[data-theme='dark'] .chip-item:hover {
+  border-color: var(--green-600);
+  color: var(--green-text-strong);
+  background: var(--green-100);
+}
 
 /* fit */
 .fit-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
