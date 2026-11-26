@@ -1,6 +1,6 @@
 // Demo backend that runs in the browser. Same shape as the real API (./http.js), so screens don't care which one they get.
 // Everything here is simulated: no calls, texts or alerts are sent.
-import { setToken, getToken } from './session.js'
+import { setToken, getToken, clearToken } from './session.js'
 
 const DB_KEY = 'tendai-demo-db-v2'
 export const DEMO_OTP = '123456'
@@ -18,26 +18,89 @@ const FACILITIES = [
   { id: 'f_oki', name: 'Oke-Ilewo Health Centre', short: 'Oke-Ilewo HC', type: 'Health centre', lat: 7.145, lng: 3.348, open: '8am – 6pm', emergency: false, phone: '+234 800 000 1005', address: 'Oke-Ilewo, Abeokuta, Ogun State', services: ['General clinic', 'Pharmacy'] },
 ]
 
+function defaultSettings() {
+  return {
+    sosDelay: 5,
+    share: { location: true, nameAge: true, bloodGenotype: true, allergies: true, infections: false, conditionsMeds: false },
+    sosOptions: { soundAlert: true, vibrateAlert: true, alertHelpers: true },
+    notifications: {
+      incidentUpdates: true,
+      wellnessReminders: true,
+      checkInReminders: true,
+      quietHours: false,
+      quietStart: '22:00',
+      quietEnd: '07:00',
+    },
+    preferences: { theme: '', language: 'en', largeText: false, reduceMotion: false, timeFormat: '24h' },
+  }
+}
+
+function defaultProfile() {
+  return { name: '', age: '', heightCm: '', weightKg: '', sex: '', email: '', city: '', avatar: '' }
+}
+
+function defaultSecurity() {
+  return { hasPassword: false, passwordUpdatedAt: null }
+}
+
 function newUser(phone) {
   return {
+    passwordHash: null,
     me: {
       id: uid('u'),
       phone,
       onboarded: false,
       permissionsDone: false,
-      profile: { name: '', age: '', heightCm: '', weightKg: '', sex: '' },
+      profile: defaultProfile(),
       medical: { bloodGroup: '', genotype: '', allergies: [], infections: [], conditions: [], medications: [], notes: '' },
-      settings: {
-        sosDelay: 5,
-        share: { location: true, nameAge: true, bloodGenotype: true, allergies: true, infections: false, conditionsMeds: false },
-      },
+      settings: defaultSettings(),
+      security: defaultSecurity(),
       fit: { steps: 6240, stepGoal: 8000, calories: 1840, calorieGoal: 2200, waterCups: 5, waterGoal: 8, sleepHrs: 6.5 },
       meals: null,
       dietResult: null,
     },
     contacts: [],
     places: [],
+    reports: [],
   }
+}
+
+function normalizeUser(u) {
+  const me = u.me || {}
+  return {
+    ...u,
+    passwordHash: u.passwordHash || null,
+    reports: u.reports || [],
+    me: {
+      ...me,
+      profile: { ...defaultProfile(), ...(me.profile || {}) },
+      settings: deepMerge(defaultSettings(), me.settings || {}),
+      security: {
+        ...defaultSecurity(),
+        ...(me.security || {}),
+        hasPassword: Boolean(u.passwordHash || me.security?.hasPassword),
+      },
+    },
+  }
+}
+
+async function hashSecret(secret, salt) {
+  const input = `${salt}:${secret}`
+  if (globalThis.crypto?.subtle) {
+    const data = new TextEncoder().encode(input)
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', data)
+    return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
+  }
+  let h = 2166136261
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return `fnv_${(h >>> 0).toString(16)}`
+}
+
+function validatePassword(pw) {
+  if (!pw || pw.length < 8) throw new MockError('Password must be at least 8 characters.', 422)
 }
 
 function loadDb() {
@@ -63,11 +126,16 @@ class MockError extends Error {
   }
 }
 
-function current() {
+function currentEntry() {
   const token = getToken()
-  const phone = token && db.sessions[token]
-  if (!phone || !db.users[phone]) throw new MockError('Please sign in again.', 401)
-  return db.users[phone]
+  const key = token && db.sessions[token]
+  if (!key || !db.users[key]) throw new MockError('Please sign in again.', 401)
+  db.users[key] = normalizeUser(db.users[key])
+  return { key, user: db.users[key] }
+}
+
+function current() {
+  return currentEntry().user
 }
 
 export function distanceKm(a, b) {
@@ -267,11 +335,60 @@ export function createMockApi() {
         if (code !== DEMO_OTP) throw new MockError('That code is not right. In demo mode the code is 123456.', 400)
         const key = phone.replace(/\D/g, '')
         if (!db.users[key]) db.users[key] = newUser(phone)
+        db.users[key] = normalizeUser(db.users[key])
         const token = uid('t')
         db.sessions[token] = key
         save()
         setToken(token)
         return { token, me: db.users[key].me }
+      },
+      async loginWithPassword(phone, password) {
+        await wait(500)
+        const key = phone.replace(/\D/g, '')
+        const entry = db.users[key] ? normalizeUser(db.users[key]) : null
+        if (!entry) throw new MockError('No account found for that phone number.', 404)
+        if (!entry.passwordHash) throw new MockError('No password is set for this number yet. Sign in with an SMS code first.', 400)
+        const hash = await hashSecret(password, key)
+        if (hash !== entry.passwordHash) throw new MockError('Incorrect phone number or password.', 401)
+        db.users[key] = entry
+        const token = uid('t')
+        db.sessions[token] = key
+        save()
+        setToken(token)
+        return { token, me: entry.me }
+      },
+      async changePassword({ currentPassword, newPassword }) {
+        await wait(450)
+        validatePassword(newPassword)
+        const { key, user } = currentEntry()
+        if (user.passwordHash) {
+          const curHash = await hashSecret(currentPassword || '', key)
+          if (curHash !== user.passwordHash) throw new MockError('Current password is not correct.', 400)
+        }
+        user.passwordHash = await hashSecret(newPassword, key)
+        user.me.security = { hasPassword: true, passwordUpdatedAt: new Date().toISOString() }
+        save()
+        return { ok: true, security: user.me.security }
+      },
+      async requestPasswordReset(phone) {
+        await wait(450)
+        const key = phone.replace(/\D/g, '')
+        if (key.length < 10) throw new MockError('Enter a valid Nigerian phone number.', 422)
+        if (!db.users[key]) throw new MockError('No account found for that phone number.', 404)
+        return { sent: true, demoCode: DEMO_OTP }
+      },
+      async resetPassword({ phone, code, newPassword }) {
+        await wait(500)
+        if (code !== DEMO_OTP) throw new MockError('That code is not right. In demo mode the code is 123456.', 400)
+        validatePassword(newPassword)
+        const key = phone.replace(/\D/g, '')
+        const user = db.users[key] ? normalizeUser(db.users[key]) : null
+        if (!user) throw new MockError('No account found for that phone number.', 404)
+        user.passwordHash = await hashSecret(newPassword, key)
+        user.me.security = { hasPassword: true, passwordUpdatedAt: new Date().toISOString() }
+        db.users[key] = user
+        save()
+        return { ok: true, security: user.me.security }
       },
       async logout() {
         const token = getToken()
@@ -291,6 +408,17 @@ export function createMockApi() {
         u.me = deepMerge(u.me, patch)
         save()
         return u.me
+      },
+      async remove() {
+        await wait(300)
+        const { key } = currentEntry()
+        delete db.users[key]
+        for (const [tok, phoneKey] of Object.entries(db.sessions)) {
+          if (phoneKey === key) delete db.sessions[tok]
+        }
+        save()
+        clearToken()
+        return null
       },
     },
     contacts: {
@@ -350,7 +478,7 @@ export function createMockApi() {
       },
     },
     incidents: {
-      async create({ lat, lng, accuracy, shareFields }) {
+      async create({ lat, lng, accuracy, shareFields, alertHelpers = true }) {
         await wait(700)
         const u = current()
         const from = lat != null ? { lat, lng } : ABEOKUTA
@@ -361,7 +489,7 @@ export function createMockApi() {
             ? { id: own.id, kind: 'hospital', name: own.name, detail: 'Your trusted hospital', status: 'queued', channels: ['call'] }
             : { id: nearest.id, kind: 'hospital', name: nearest.short, detail: `Nearest 24h emergency · ${nearest.d.toFixed(1)} km`, status: 'queued', channels: ['call'] },
           ...u.contacts.slice(0, 3).map((c) => ({ id: c.id, kind: 'contact', name: c.name, detail: c.relationship, status: 'queued', channels: c.notify || ['call', 'sms'] })),
-          { id: 'helpers', kind: 'helpers', name: 'Nearby helpers', detail: 'Opted-in people nearby', status: 'queued', channels: [] },
+          ...(alertHelpers ? [{ id: 'helpers', kind: 'helpers', name: 'Nearby helpers', detail: 'Opted-in people nearby', status: 'queued', channels: [] }] : []),
         ]
         const inc = { id: uid('inc'), state: 'active', createdAt: new Date().toISOString(), location: { lat, lng, accuracy }, shareFields, targets, listeners: new Set(), timers: [] }
         inc.timers = simulateIncident(inc, (e) => inc.listeners.forEach((l) => l(e)))

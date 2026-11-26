@@ -127,10 +127,60 @@ export function useLoadSampleReports() {
   })
 }
 
+// NAFDAC Greenbook (registered drugs)
+export function useDrugSearch(q) {
+  const term = q.trim()
+  return useQuery({
+    queryKey: ['drugs', term.toLowerCase()],
+    queryFn: ({ signal }) => api.drugs.search(term, { signal }),
+    enabled: term.length >= 2,
+    staleTime: 10 * 60_000,
+    placeholderData: (prev) => prev,
+  })
+}
+
+export function useVerifyDrug() {
+  return useMutation({ mutationFn: api.drugs.verify })
+}
+
 export function useAnalyseDiet() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: api.diet.analyse,
     onSuccess: (result, meals) => qc.setQueryData(keys.me, (me) => (me ? { ...me, meals, dietResult: result } : me)),
+  })
+}
+
+export function useChangePassword() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: api.auth.changePassword,
+    onSuccess: (res) => {
+      if (res?.security) qc.setQueryData(keys.me, (me) => (me ? { ...me, security: res.security } : me))
+    },
+  })
+}
+
+export function useRequestPasswordReset() {
+  return useMutation({
+    mutationFn: (phone) => api.auth.requestPasswordReset(phone),
+  })
+}
+
+export function useResetPassword() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: api.auth.resetPassword,
+    onSuccess: (res) => {
+      if (res?.security) qc.setQueryData(keys.me, (me) => (me ? { ...me, security: res.security } : me))
+    },
+  })
+}
+
+export function useDeleteAccount() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: api.me.remove,
+    onSuccess: () => qc.clear(),
   })
 }

@@ -1,5 +1,5 @@
 // Real backend adapter (FastAPI). Endpoints follow docs/IMPLEMENTATION_PLAN.md §6.
-import { getToken, clearToken } from './session.js'
+import { getToken, setToken, clearToken } from './session.js'
 
 export class ApiError extends Error {
   constructor(message, status, body) {
@@ -74,12 +74,28 @@ export function createHttpApi(baseUrl) {
     auth: {
       // mode: 'signup' (number must be new) or 'signin' (number must exist). Server replies 409 / 404 otherwise.
       requestOtp: (phone, mode = 'signin') => request('/auth/otp', { method: 'POST', body: { phone, mode } }),
-      verifyOtp: (phone, code) => request('/auth/verify', { method: 'POST', body: { phone, code } }),
+      verifyOtp: async (phone, code) => {
+        const res = await request('/auth/verify', { method: 'POST', body: { phone, code } })
+        if (res?.token) setToken(res.token)
+        return res
+      },
+      loginWithPassword: async (phone, password) => {
+        const res = await request('/auth/login', { method: 'POST', body: { phone, password } })
+        if (res?.token) setToken(res.token)
+        return res
+      },
+      changePassword: (payload) => request('/auth/password/change', { method: 'POST', body: payload }),
+      requestPasswordReset: (phone) => request('/auth/password/reset/request', { method: 'POST', body: { phone } }),
+      resetPassword: (payload) => request('/auth/password/reset/confirm', { method: 'POST', body: payload }),
       logout: () => request('/auth/logout', { method: 'POST' }).catch(() => null),
     },
     me: {
       get: () => request('/me'),
       patch: (patch) => request('/me', { method: 'PATCH', body: patch }),
+      remove: () => request('/me', { method: 'DELETE' }).then((res) => {
+        clearToken()
+        return res
+      }),
     },
     contacts: {
       list: () => request('/contacts'),
@@ -124,7 +140,21 @@ export function createHttpApi(baseUrl) {
       verify: (nafdacNo) => request(`/medicines/verify?nafdac=${encodeURIComponent(nafdacNo)}`),
     },
     agent: {
-      chat: (messages, handlers) => streamEvents('/agent/chat', { method: 'POST', body: { messages }, ...handlers }),
+      chat: (messages, { lat, lng, ...handlers } = {}) => streamEvents('/agent/chat', { method: 'POST', body: { messages, lat, lng }, ...handlers }),
+    },
+    voice: {
+      config: () => request('/voice/config'),
+      createSession: ({ lat, lng } = {}) => request('/voice/sessions', { method: 'POST', body: { lat, lng } }),
+      endSession: (id) => request(`/voice/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+      targets: () => request('/voice/targets'),
+      calls: () => request('/voice/calls'),
+      createCall: ({ targetType, targetId, purpose }) => {
+        const trimmed = purpose.trim()
+        if (trimmed.length < 5 || trimmed.length > 500) return Promise.reject(new Error('Purpose must be 5–500 characters.'))
+        return request('/voice/calls', { method: 'POST', body: { targetType, targetId, purpose: trimmed } })
+      },
+      confirmCall: (id) => request(`/voice/calls/${encodeURIComponent(id)}/confirm`, { method: 'POST', body: { confirmed: true } }),
+      cancelCall: (id) => request(`/voice/calls/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     },
   }
 }

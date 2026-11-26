@@ -1,9 +1,9 @@
 import { createHttpApi } from './http.js'
-import { createMockApi } from './mock.js'
 
-// VITE_API_URL set → talk to the FastAPI backend. Not set → built-in demo backend in the browser.
-const url = import.meta.env.VITE_API_URL
+// Every screen talks to the TendAI backend (FastAPI + Postgres + Qdrant + NAFDAC service).
+// Default `/api` works behind the Caddy web container and the Vite dev proxy (vite.config.js).
+const url = import.meta.env.VITE_API_URL || '/api'
 
-export const api = url ? createHttpApi(url) : createMockApi()
-export const isDemo = api.mode === 'demo'
+export const isDemo = false
+export const api = createHttpApi(url)
 export { ApiError } from './http.js'

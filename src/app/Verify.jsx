@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import Icon from '../components/Icon.jsx'
-import { api, isDemo } from '../api/index.js'
-import { DEMO_NAFDAC_SAMPLES } from '../api/mock.js'
+import { api } from '../api/index.js'
 import { SectionHead } from './Screens.jsx'
 
 // TendVerify: check a medicine's NAFDAC registration number.
@@ -24,6 +23,7 @@ export function normaliseNafdac(raw) {
 }
 
 const STATUS = {
+  pending: { tone: 'amber', icon: 'alert', title: 'Registration needs review', text: 'The source does not list this registration as active. Ask a pharmacist to confirm its current status.' },
   registered: { tone: 'green', icon: 'shield', title: 'Registered with NAFDAC', text: 'This number matches a registered product. Check that the details below match your pack exactly.' },
   expired: { tone: 'amber', icon: 'alert', title: 'Registration has expired', text: 'This product was registered, but the registration is no longer current. Ask your pharmacist before using it.' },
   suspended: { tone: 'red', icon: 'alert', title: 'Registration suspended or withdrawn', text: 'Do not use this product. Return it to where you bought it and report it to NAFDAC.' },
@@ -98,14 +98,6 @@ export default function Verify() {
               </div>
             </label>
             {touched && input && !valid && <p className="form-error"><Icon name="alert" size={16} /> That doesn't look like a NAFDAC number. It is usually 2 characters, a dash, then 4 digits, like A4-1234 or 04-1234.</p>}
-            {isDemo && (
-              <p className="verify-samples">
-                <span className="demo-tag">Demo</span> Try:{' '}
-                {DEMO_NAFDAC_SAMPLES.map((s) => (
-                  <button type="button" key={s} className="link-btn" onClick={() => run(s)}>{s}</button>
-                ))}
-              </p>
-            )}
           </form>
 
           {verify.isPending && (

@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link } from 'react-router'
 import Icon from '../components/Icon.jsx'
 import QueryState, { Spinner } from '../components/QueryState.jsx'
 import { useContacts, useSaveContact, useDeleteContact, usePlaces, useUpdateMe, useAnalyseDiet, useFacilities } from './data.js'
 import { useLocation } from './location.jsx'
-import { useAuth } from './auth.jsx'
 import { bmi } from './Onboarding.jsx'
 import i18next from 'i18next'
 import { Capacitor } from '@capacitor/core'
@@ -172,7 +171,6 @@ export function Home({ me, onSos }) {
     { id: 'diet', icon: 'apple', tone: 'amber', label: 'Diet', meta: me.dietResult ? 'Plan ready' : "Log today's meals" },
     { id: 'fit', icon: 'activity', tone: 'purple', label: 'Fit Health', meta: `${me.fit.steps.toLocaleString()} steps today` },
     { id: 'emergencies', icon: 'firstaid', tone: 'red', label: 'Common emergencies', meta: 'CPR, choking, burns and more' },
-    { id: 'travel', icon: 'shield', tone: 'green', label: 'Travel Safe', meta: 'Check-in for trips' },
     { id: 'agent', icon: 'chat', tone: 'green', label: 'Talk to TendTalk', meta: 'Ask a health question' },
   ]
   const checks = [
@@ -181,7 +179,6 @@ export function Home({ me, onSos }) {
     { label: '2+ emergency contacts', ok: (nContacts || 0) >= 2, link: '/app/circle' },
     { label: 'Medical ID (Blood group)', ok: !!m.bloodGroup, link: '/app/medical' },
     { label: 'Trusted hospital', ok: (places.data?.length || 0) > 0, link: '/app/locator' },
-    { label: 'Travel Safe checked in', ok: !!me.travelCheckedIn, link: '/app/travel' },
   ]
   const done = checks.filter((c) => c.ok).length
   const nextStep = checks.find((c) => !c.ok)
@@ -244,7 +241,7 @@ export function Home({ me, onSos }) {
               <Icon name="phone" size={18} />
               <span>Call 112 directly</span>
             </a>
-            <Link className="btn btn-ghost btn-sm" to="/app/settings">
+            <Link className="btn btn-ghost btn-sm" to="/app/settings?tab=safety">
               <Icon name="clock" size={16} /> Change cancel timer ({delay}s)
             </Link>
           </div>
@@ -661,7 +658,7 @@ export function Medical({ me }) {
               <dt>Medication</dt><dd>{m.medications.join(', ') || 'None recorded'}</dd>
             </dl>
           </div>
-          <p className="note"><Icon name="lock" size={16} /> Saved automatically. Choose which fields are shared in <Link className="link-btn" to="/app/settings">Settings</Link>.</p>
+          <p className="note"><Icon name="lock" size={16} /> Saved automatically. Choose which fields are shared in <Link className="link-btn" to="/app/settings?tab=safety">Settings</Link>.</p>
         </aside>
       </div>
     </div>
@@ -1361,268 +1358,6 @@ export function Fit({ me }) {
               ? 'Showing the last 7 days from Google Health Connect / Apple Health.'
               : 'Sample data. Connect Health Connect or Apple Health on your device to see your own numbers.'}
           </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ---------- Travel Safe Check-in ---------- */
-
-// Travel Safe check-in status
-const travelStatuses = {
-  active: 'Active',
-  completed: 'Completed',
-  missed: 'Missed',
-  snoozed: 'Snoozed'
-}
-
-// Check-in data structure
-function CheckInData({
-  checkInTime,
-  checkOutTime,
-  location,
-  notes,
-  tone = 'green'
-}) {
-  return (
-    <div className="check-in-item" style={{ borderLeft: `4px solid var(--green-600)` }}>
-      <div className="check-in-head">
-        <span className="check-in-time">{checkInTime}</span>
-        {checkOutTime && <span className="check-out-time">{checkOutTime}</span>}
-      </div>
-      <p className="check-in-location">{location || 'Check-in location'}</p>
-      <p className="check-in-notes">{notes || 'No notes'}</p>
-    </div>
-  )
-}
-
-// Travel Safe component
-export function TravelSafe({ me }) {
-  const [hasCheckedIn, setHasCheckedIn] = useState(false)
-  const [checkInTime, setCheckInTime] = useState('')
-  const [checkOutTime, setCheckOutTime] = useState('')
-  const [notes, setNotes] = useState('')
-  const [snooze, setSnooze] = useState(false)
-  const loc = useLocation()
-
-  const checkIn = async () => {
-    setCheckInTime(new Date().toLocaleTimeString())
-    setHasCheckedIn(true)
-    // Save check-in to backend
-    try {
-      await api.travel.saveCheckIn({
-        lat: loc.pos?.lat ?? 0,
-        lng: loc.pos?.lng ?? 0,
-        accuracy: loc.pos?.accuracy ?? 0,
-        notes
-      })
-    } catch (e) {
-      console.error('Check-in failed:', e)
-    }
-  }
-
-  const checkOut = async () => {
-    setCheckOutTime(new Date().toLocaleTimeString())
-    setHasCheckedIn(false)
-    setNotes('')
-    setSnooze(false)
-    // Save check-out to backend
-    try {
-      await api.travel.saveCheckOut({
-        checkInTime,
-        checkOutTime: new Date().toISOString(),
-        location: loc.pos
-      })
-    } catch (e) {
-      console.error('Check-out failed:', e)
-    }
-  }
-
-  const snoozeCheckIn = () => {
-    setSnooze(true)
-    setCheckInTime('')
-    setHasCheckedIn(false)
-  }
-
-  return (
-    <div className="page">
-      <SectionHead icon="shield" tone="green" title="Travel Safe" text="Check-in when traveling. Your location will be shared with emergency contacts if needed." />
-
-      <div className="travel-container">
-        {hasCheckedIn ? (
-          <div className="check-in-summary">
-            <p>Check-in time: {checkInTime}</p>
-            <p>Check-out time: {checkOutTime}</p>
-            <p>Location: accurate to about {loc.pos?.accuracy || '–'} m</p>
-            <p>Notes: {notes || 'No notes'}</p>
-            <button className="btn btn-primary" onClick={checkOut}>End Travel Safe</button>
-            {snooze && <p>Snoozed until next reminder</p>}
-          </div>
-        ) : (
-          <div className="check-in-form">
-            <h3>Check-in for Travel Safe</h3>
-            <p>Let others know you're traveling safely.</p>
-            <textarea
-              className="input"
-              rows={3}
-              placeholder="Add notes about your travel (optional)"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              aria-label="Travel notes"
-            />
-            <div className="form-actions">
-              <button className="btn btn-primary" onClick={checkIn}>Check-in</button>
-              {snooze ? (
-                <button className="btn btn-ghost" onClick={snoozeCheckIn}>Un-snooze</button>
-              ) : (
-                <button className="btn btn-ghost" onClick={snoozeCheckIn}>Snooze 1 hour</button>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/* ---------- YarnGPT Translation Integration ---------- */
-
-// YarnGPT API integration for Nigerian languages
-const YARNGPT_API = 'https://api.yarngpt.ai/v1'
-
-// Translate text using YarnGPT
-async function translateWithYarnGPT(text, targetLanguage) {
-  try {
-    const response = await fetch(`${YARNGPT_API}/translate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_YARNGPT_API_KEY || 'your-api-key'}`
-      },
-      body: JSON.stringify({
-        text,
-        target_language: targetLanguage
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error('Translation failed')
-    }
-
-    const data = await response.json()
-    return data.translated_text || text
-  } catch (error) {
-    console.error('YarnGPT translation error:', error)
-    return text
-  }
-}
-
-// Text-to-speech using YarnGPT
-async function speakWithYarnGPT(text, language, voice) {
-  try {
-    const voiceId = voice || getDefaultVoice(language)
-    const response = await fetch(`${YARNGPT_API}/tts`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_YARNGPT_API_KEY || 'your-api-key'}`
-      },
-      body: JSON.stringify({
-        text,
-        voice: voiceId,
-        target_language: language
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error('TTS failed')
-    }
-
-    const blob = await response.blob()
-    return URL.createObjectURL(blob)
-  } catch (error) {
-    console.error('YarnGPT TTS error:', error)
-    return null
-  }
-}
-
-// Get default voice for language
-function getDefaultVoice(language) {
-  const voices = {
-    yo: 'abayomi',
-    ha: 'amina',
-    ig: 'chioma',
-    en: 'idera'
-  }
-  return voices[language] || 'idera'
-}
-
-/* ---------- Settings ---------- */
-
-const shareFields = [
-  ['location', 'Live location'],
-  ['nameAge', 'Name and age'],
-  ['bloodGenotype', 'Blood group and genotype'],
-  ['allergies', 'Allergies'],
-  ['infections', 'Known infections'],
-  ['conditionsMeds', 'Conditions and medication'],
-]
-
-export function Settings({ me }) {
-  const save = useUpdateMe()
-  const { signOut } = useAuth()
-  const loc = useLocation()
-  const [custom, setCustom] = useState(String(me.settings.sosDelay))
-  const s = me.settings
-  const setDelay = (n) => save.mutate({ settings: { sosDelay: Math.min(30, Math.max(3, n)) } })
-
-  return (
-    <div className="page">
-      <SectionHead icon="settings" tone="grey" title="Settings" text="SOS countdown, what gets shared, and your account." action={<SaveState mutation={save} />} />
-      <div className="settings-grid">
-        <div className="card">
-          <h3>SOS countdown</h3>
-          <p className="muted">Time you have to cancel after pressing SOS.</p>
-          <div className="choice-row" style={{ marginTop: 14 }}>
-            {[3, 5, 10].map((n) => (
-              <button key={n} className={`choice ${s.sosDelay === n ? 'on' : ''}`} aria-pressed={s.sosDelay === n} onClick={() => { setDelay(n); setCustom(String(n)) }}>{n} sec</button>
-            ))}
-          </div>
-          <label className="field" style={{ marginTop: 14 }}>
-            <span>Custom (3–30 seconds)</span>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input className="input" type="number" min="3" max="30" value={custom} onChange={(e) => setCustom(e.target.value)} />
-              <button className="btn btn-ghost" onClick={() => setDelay(Number(custom) || 5)}>Save</button>
-            </div>
-          </label>
-        </div>
-        <div className="card">
-          <h3>Shared during SOS</h3>
-          <p className="muted">Only these fields go to the hospital and your contacts.</p>
-          <ul className="toggle-list">
-            {shareFields.map(([k, l]) => (
-              <li key={k}>
-                <span>{l}</span>
-                <label className="switch">
-                  <input type="checkbox" aria-label={l} checked={!!s.share[k]} onChange={(e) => save.mutate({ settings: { share: { [k]: e.target.checked } } })} />
-                  <span />
-                </label>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="card">
-          <h3>Location</h3>
-          <p className="muted">
-            {loc.status === 'live' ? `On · accurate to about ${loc.pos.accuracy} m.` : loc.status === 'denied' ? "Blocked in your browser. Allow location for this site in your browser's settings." : 'Off. Turn it on so SOS can share where you are.'}
-          </p>
-          {loc.status !== 'live' && loc.status !== 'denied' && <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={loc.start}><Icon name="pin" size={18} /> Turn on location</button>}
-        </div>
-        <div className="card">
-          <h3>Account</h3>
-          <p className="muted">Signed in as {me.phone}.</p>
-          <button className="btn btn-ghost" style={{ marginTop: 14 }} onClick={signOut}><Icon name="logout" size={18} /> Sign out</button>
         </div>
       </div>
     </div>

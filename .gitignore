@@ -12,3 +12,4 @@ android/build/
 ios/App/build/
 ios/App/DerivedData/
 ios/App/Pods/
+.vercel
