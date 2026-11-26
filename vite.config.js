@@ -5,7 +5,9 @@ import { defineConfig, loadEnv } from 'vite'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   // `npm run dev` proxies /api to the backend so the browser never needs CORS.
-  const backend = env.BACKEND_URL || 'http://localhost:8000'
+  // Default to the deployed backend server if no local BACKEND_URL is provided.
+  const backend = env.BACKEND_URL || 'http://102-209-47-220.sslip.io'
+  const isDirectFastAPI = backend.includes('localhost:') || backend.includes('127.0.0.1:')
   return {
     plugins: [react()],
     resolve: {
@@ -13,7 +15,11 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
-        '/api': { target: backend, changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, '') },
+        '/api': {
+          target: backend,
+          changeOrigin: true,
+          ...(isDirectFastAPI ? { rewrite: (p) => p.replace(/^\/api/, '') } : {}),
+        },
       },
     },
   }
